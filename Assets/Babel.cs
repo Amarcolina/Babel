@@ -5,6 +5,11 @@ using System.Numerics;
 using Unity.Mathematics;
 using Unity.VisualScripting;
 
+public static class BigIntExtensions {
+
+
+}
+
 [ExecuteAlways]
 public class Babel : MonoBehaviour {
 
@@ -19,6 +24,7 @@ public class Babel : MonoBehaviour {
     public int ImageDensity;
     public int[] Patterns;
     public int[] PatternCounts;
+    public int[] Allocated;
 
     private void OnValidate() {
         ImageWidth = Mathf.ClosestPowerOfTwo(ImageWidth);
@@ -37,12 +43,15 @@ public class Babel : MonoBehaviour {
 
         Patterns = new int[ImageSize - 1];
         PatternCounts = new int[ImageSize - 1];
+        Allocated = new int[ImageSize - 1];
     }
 
     private void Update() {
         if (CalculateCounts) {
             CalculateCounts = false;
             CalculatePixelCounts();
+
+            SetFromPercent(0);
         }
 
         if (Increment || AutoIncrement) {
@@ -51,6 +60,41 @@ public class Babel : MonoBehaviour {
                 NextImage();
             }
         }
+    }
+
+    public void SetFromPercent(float percent) {
+        var maxPossibilities = BigInteger.Pow(2, ImageSize);
+        var index = maxPossibilities * new BigInteger(Mathf.RoundToInt(percent * 1000000)) / 1000000;
+
+        SetFromIndex(index);
+    }
+
+    public void SetFromIndex(BigInteger index) {
+        var residual = index;
+        ImageDensity = 0;
+        while (true) {
+            if (residual <= 0) {
+                break;
+            }
+
+            ImageDensity++;
+            var ways = NChooseK(ImageSize, ImageDensity);
+            residual -= ways;
+        }
+    }
+
+    public BigInteger NChooseK(BigInteger n, BigInteger k) {
+        if (k < 0 || k > n)
+            return 0;
+        if (k == 0 || k == n)
+            return 1;
+        k = BigInteger.Min(k, n - k);
+
+        BigInteger c = 1;
+        for (BigInteger i = 0; i < k; i++) {
+            c = c * (n - i);
+        }
+        return c;
     }
 
     public void GenerateImage() {
@@ -84,6 +128,7 @@ public class Babel : MonoBehaviour {
     public void CalculatePixelCounts() {
         void Recurse(int level, int index, int allocated, int maxPerHalve) {
             PatternCounts[index] = N2Count(allocated, maxPerHalve);
+            Allocated[index] = allocated;
             int2 allocation = N2XY(allocated, maxPerHalve, Patterns[index]);
 
             if (index * 2 + 1 >= Patterns.Length) {
