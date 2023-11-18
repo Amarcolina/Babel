@@ -16,6 +16,10 @@ public class Babel : MonoBehaviour {
     public int ImageWidth = 16;
     public int ImageSize = 0;
 
+    [Range(0, 100)]
+    public float Percent;
+    public int Index;
+
     public bool CalculateCounts;
     public bool Increment;
     public bool AutoIncrement;
@@ -26,9 +30,14 @@ public class Babel : MonoBehaviour {
     public int[] PatternCounts;
     public int[] Allocated;
 
+    private float _prevPercent;
+    private int _prevIndex;
+
     private void OnValidate() {
         ImageWidth = Mathf.ClosestPowerOfTwo(ImageWidth);
         ImageSize = ImageWidth * ImageWidth;
+
+        //Debug.Log(result.GetByteCount());
     }
 
     private void OnEnable() {
@@ -47,40 +56,169 @@ public class Babel : MonoBehaviour {
     }
 
     private void Update() {
+        if (Increment) {
+            Increment = false;
+            Index++;
+        }
+
+        if (Percent != _prevPercent) {
+            SetFromPercent(Percent / 100f);
+            _prevPercent = Percent;
+        }
+
+        if (Index != _prevIndex) {
+            SetFromIndex(Index);
+            _prevIndex = Index;
+
+            var maxPossibilities = BigInteger.Pow(2, ImageSize);
+            Percent = _prevPercent = (float)((double)Index / (double)maxPossibilities);
+        }
+
         if (CalculateCounts) {
             CalculateCounts = false;
             CalculatePixelCounts();
-
-            SetFromPercent(0);
-        }
-
-        if (Increment || AutoIncrement) {
-            Increment = false;
-            for (int i = 0; i < IncrementCount; i++) {
-                NextImage();
-            }
         }
     }
 
     public void SetFromPercent(float percent) {
         var maxPossibilities = BigInteger.Pow(2, ImageSize);
-        var index = maxPossibilities * new BigInteger(Mathf.RoundToInt(percent * 1000000)) / 1000000;
+        var index = (maxPossibilities * new BigInteger(Mathf.RoundToInt(percent * 1000000))) / 1000000;
+
+        if (index == maxPossibilities) {
+            index = maxPossibilities - 1;
+        }
+
+        //Index = _prevIndex = (int)index;
 
         SetFromIndex(index);
     }
 
     public void SetFromIndex(BigInteger index) {
+        for (int i = 0; i < Patterns.Length; i++) {
+            Patterns[i] = 0;
+        }
+
         var residual = index;
         ImageDensity = 0;
         while (true) {
-            if (residual <= 0) {
+            if (ImageDensity >= ImageSize) {
+                break;
+            }
+
+            var ways = NPermuteK(ImageSize, ImageDensity);
+
+            if (residual < ways) {
                 break;
             }
 
             ImageDensity++;
-            var ways = NChooseK(ImageSize, ImageDensity);
             residual -= ways;
         }
+
+        CalculatePixelCounts();
+
+        int level = 0;
+        int levelStart = 0;
+        int levelEnd = 1;
+        int regionSize = ImageSize / 2;
+
+        int what = 10000;
+
+        if (residual == 0) {
+            return;
+        }
+
+        int iterations = 0;
+
+        while (true) {
+            //for (int i = levelEnd - 2; i >= levelStart; i--) {
+            //    if (residual >= JumpCosts[i]) {
+            //        int times = (int)(residual / JumpCosts[i]);
+            //        Patterns[i + 1] += times;
+            //        residual -= times * JumpCosts[i];
+            //    }
+            //}
+
+            if (residual <= 0) {
+                break;
+            }
+
+
+            BigInteger levelCost = new BigInteger(1);
+
+            for (int i = levelStart; i < levelEnd; i++) {
+                var allocation = N2XY(Allocated[i], regionSize, Patterns[i]);
+                levelCost *= NPermuteK(regionSize, allocation.x);
+                levelCost *= NPermuteK(regionSize, allocation.y);
+            }
+
+            if (residual < levelCost) {
+                CalculatePixelCounts();
+                level++;
+                levelStart = levelStart * 2 + 1;
+                levelEnd = levelEnd * 2 + 1;
+                regionSize /= 2;
+                continue;
+            }
+
+            int toInc = levelStart;
+            while (true) {
+                Patterns[toInc]++;
+                if (Patterns[toInc] == PatternCounts[toInc]) {
+                    Patterns[toInc] = 0;
+                    toInc++;
+                } else {
+                    break;
+                }
+            }
+
+            residual -= levelCost;
+
+            if (residual <= 0) {
+                break;
+            }
+
+            //if (Patterns[levelStart] == PatternCounts[levelStart]) {
+            //    break;
+            //}
+            iterations++;
+        }
+
+        CalculatePixelCounts();
+    }
+
+    public Dictionary<(int, int), BigInteger> Cache = new();
+
+    public BigInteger NPermuteK(int n, int k) {
+        if (Cache.TryGetValue((n, k), out var early)) {
+            return early;
+        }
+
+        var q = n - k;
+
+        //Make sure k is largest
+        if (q < k) {
+            var tmp = q;
+            q = k;
+            k = tmp;
+        }
+
+        var result = new BigInteger(1);
+
+        for (int i = n; i > k; i--) {
+            result *= i;
+        }
+
+        BigInteger divisor = new BigInteger(1);
+        for (int i = 2; i <= q; i++) {
+            divisor *= i;
+        }
+
+        result /= divisor;
+
+        Cache[(n, k)] = result;
+
+        return result;
     }
 
     public BigInteger NChooseK(BigInteger n, BigInteger k) {
