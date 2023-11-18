@@ -13,6 +13,8 @@ public class Babel : MonoBehaviour {
 
     public bool CalculateCounts;
     public bool Increment;
+    public bool AutoIncrement;
+    public int IncrementCount;
 
     public int ImageDensity;
     public int[] Patterns;
@@ -43,10 +45,40 @@ public class Babel : MonoBehaviour {
             CalculatePixelCounts();
         }
 
-        if (Increment) {
+        if (Increment || AutoIncrement) {
             Increment = false;
-            NextImage();
+            for (int i = 0; i < IncrementCount; i++) {
+                NextImage();
+            }
         }
+    }
+
+    public void GenerateImage() {
+        void Recurse(int level, int delta, int index, int allocated, int maxPerHalve, int x, int y) {
+            int2 allocation = N2XY(allocated, maxPerHalve, Patterns[index]);
+
+            int dx = 0;
+            int dy = 0;
+
+            if (level % 2 == 0) {
+                dx += delta;
+            } else {
+                dy += delta;
+                delta /= 2;
+            }
+
+            if (index * 2 + 1 >= Patterns.Length) {
+                if (allocation.x > 0)
+                    Gizmos.DrawCube(new UnityEngine.Vector3(x, y, 0), new UnityEngine.Vector3(1, 1, 1));
+                if (allocation.y > 0)
+                    Gizmos.DrawCube(new UnityEngine.Vector3(x + dx, y + dy, 0), new UnityEngine.Vector3(1, 1, 1));
+            } else {
+                Recurse(level + 1, delta, index * 2 + 1, allocation.x, maxPerHalve / 2, x, y);
+                Recurse(level + 1, delta, index * 2 + 2, allocation.y, maxPerHalve / 2, x + dx, y + dy);
+            }
+
+        }
+        Recurse(0, ImageWidth / 2, 0, ImageDensity, ImageSize / 2, 0, 0);
     }
 
     public void CalculatePixelCounts() {
@@ -101,6 +133,7 @@ public class Babel : MonoBehaviour {
     }
 
     private void OnDrawGizmos() {
+        GenerateImage();
     }
 
 
