@@ -68,6 +68,23 @@ public class Babel3 : MonoBehaviour {
     SetFromIndex(middle, end, rightOccupied, rightIndex);
   }
 
+  //Idea for space filling curve
+  //  Create snake blocks of N width by 2 height
+  //  Choose best N>=2 to make N/2 best approximate the ratio of enclosing space
+
+  //  Layout out columns of N-wide snake blocks, last block will have to handle
+  //  the residual width remaining N%width
+  //
+  //  Each alternating column travels up and down
+  //
+  // If total width is even, the entire path starts with a single path from
+  // on the bottom that starts the 
+
+
+
+
+
+
   public Dictionary<(int, int), BigInteger> NPermuteKCache = new();
   public BigInteger NPermuteK(int n, int k) {
     if (NPermuteKCache.TryGetValue((n, k), out var early)) {
