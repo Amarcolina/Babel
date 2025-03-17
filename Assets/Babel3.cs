@@ -161,16 +161,48 @@ public class Babel3 : MonoBehaviour {
       }
     }
 
-    BigInteger leftIndex = index % leftCombinations;
-    BigInteger rightIndex = index / leftCombinations;
-
-    if (rightIndex % 2 == 1) {
-      leftIndex = (leftCombinations - 1) - leftIndex;
-    }
+    (BigInteger leftIndex, BigInteger rightIndex) = EvalCurve(leftCombinations, rightCombinations, index);
 
     int middle = start + (end - start) / 2;
     SetFromIndex(start, middle, leftOccupied, leftIndex);
     SetFromIndex(middle, end, rightOccupied, rightIndex);
+  }
+
+  public (BigInteger left, BigInteger right) EvalCurve(BigInteger width, BigInteger height, BigInteger index) {
+    return DiagonalWrapCurve(width, height, index);
+  }
+
+  public (BigInteger left, BigInteger right) SnakeCurve(BigInteger width, BigInteger height, BigInteger index) {
+    BigInteger leftIndex = index % width;
+    BigInteger rightIndex = index / width;
+
+    if (rightIndex % 2 == 1) {
+      leftIndex = (width - 1) - leftIndex;
+    }
+
+    return (leftIndex, rightIndex);
+  }
+
+  public (BigInteger left, BigInteger right) DiagonalWrapCurve(BigInteger width, BigInteger height, BigInteger index) {
+    BigInteger columnCount = width / 2;
+    BigInteger columnSize = 2 * height;
+
+    BigInteger columnIndex = index / columnSize;
+    BigInteger columnStart = columnIndex * columnSize;
+
+    BigInteger left, right;
+
+    if (columnIndex == columnCount) {
+      left = columnIndex * 2 + (index - columnStart);
+      right = (index - columnStart);
+    } else {
+      left = columnIndex * 2 + (index - columnStart + 1) / 2;
+      right = (index - columnStart) / 2;
+    }
+
+    left = left % width;
+
+    return (left, right);
   }
 
   public Dictionary<(int, int), BigInteger> NPermuteKCache = new();
