@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 [ExecuteAlways]
 public class Babel3 : MonoBehaviour {
@@ -12,17 +14,34 @@ public class Babel3 : MonoBehaviour {
   public int ImageWidth;
 
   [Range(0, 1)]
+  public float AdjustedPercent;
+
+  [Range(0, 1)]
   public float Percent;
 
   public int TotalSetPixels;
-  public int Index = 0;
+  public int Offset = 0;
 
   public bool Validate;
 
+  [Header("Rendering")]
+  public Renderer Renderer;
+  public Texture2D LookupTex;
+  public Texture2D DataTex;
+
+  private MaterialPropertyBlock _block;
+  private float _prevPercent;
+  private float _prevAdjustedPercent;
+  private int _prevOffset;
+  private BigInteger _index;
+
   private void OnEnable() {
+    _block = new();
+
     _array = new byte[ImageWidth * ImageWidth];
     _positions = new int2[ImageWidth * ImageWidth];
     InitPositions(0, _array.Length, 0, 0, ImageWidth);
+    UpdateLookupTexture();
   }
 
   private void Update() {
@@ -31,6 +50,7 @@ public class Babel3 : MonoBehaviour {
       _array = new byte[imageSize];
       _positions = new int2[imageSize];
       InitPositions(0, _array.Length, 0, 0, ImageWidth);
+      UpdateLookupTexture();
     }
 
     if (Validate) {
@@ -56,19 +76,94 @@ public class Babel3 : MonoBehaviour {
 
       Debug.Log("No duplicates found!");
     }
+
+    if (_prevAdjustedPercent != AdjustedPercent) {
+      _prevAdjustedPercent = AdjustedPercent;
+
+      int slots = imageSize + 1;
+      int slot = Mathf.FloorToInt(AdjustedPercent * slots);
+
+      float inSlotT = Mathf.InverseLerp(slot, slot + 1, AdjustedPercent * slots);
+
+      BigInteger startIndex = 0;
+      for (int i = 0; i < slot; i++) {
+        startIndex += NPermuteK(imageSize, i);
+      }
+
+      BigInteger endIndex = startIndex + NPermuteK(imageSize, slot);
+
+      BigInteger delta = (endIndex - startIndex);
+      BigInteger percentDelta = delta * new BigInteger(Mathf.RoundToInt(inSlotT * 1000000)) / 1000000;
+
+      _index = startIndex + percentDelta;
+
+      SetFromIndex(_index);
+      UpdateDataTexture();
+    }
+
+    if (_prevPercent != Percent) {
+      _prevPercent = Percent;
+      _index = GetIndexFromPercent(Percent);
+
+      SetFromIndex(_index);
+      UpdateDataTexture();
+    }
+
+    if (Offset != _prevOffset) {
+      _index += (Offset - _prevOffset);
+      _prevOffset = Offset;
+
+      SetFromIndex(_index);
+      UpdateDataTexture();
+    }
+
+    SetFromIndex(_index);
+    UpdateDataTexture();
   }
 
-  private void OnDrawGizmos() {
-    //SetFromPercent(Percent);
-    SetFromIndex(Index);
+  public void UpdateLookupTexture() {
+    if (LookupTex == null || LookupTex.width != ImageWidth) {
+      if (LookupTex != null) {
+        DestroyImmediate(LookupTex);
+      }
 
-    for (int i = 0; i < _array.Length; i++) {
-      int2 pos = _positions[i];
-      //int2 pos = new int2(i, 0);
-
-      Gizmos.color = _array[i] == 0 ? Color.black : Color.white;
-      Gizmos.DrawCube(new UnityEngine.Vector3(pos.x, pos.y, 0), UnityEngine.Vector3.one);
+      LookupTex = new Texture2D(ImageWidth, ImageWidth, TextureFormat.RGHalf, mipChain: false, linear: true);
+      LookupTex.filterMode = FilterMode.Point;
     }
+
+    var data = LookupTex.GetPixelData<half2>(mipLevel: 0);
+
+    for (int i = 0; i < _positions.Length; i++) {
+      int2 dstPos = _positions[i];
+      int srcX = i % ImageWidth;
+      int srcY = i / ImageWidth;
+      float2 srcUv = new float2(srcX + 0.5f, srcY + 0.5f) / ImageWidth;
+      data[dstPos.x + dstPos.y * ImageWidth] = (half2)srcUv;
+    }
+
+    LookupTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+
+    Renderer.GetPropertyBlock(_block);
+    _block.SetTexture("_Lookup", LookupTex);
+    Renderer.SetPropertyBlock(_block);
+  }
+
+  public void UpdateDataTexture() {
+    if (DataTex == null || DataTex.width != ImageWidth) {
+      if (DataTex != null) {
+        DestroyImmediate(DataTex);
+      }
+
+      DataTex = new Texture2D(ImageWidth, ImageWidth, TextureFormat.R8, mipChain: false, linear: true);
+      DataTex.filterMode = FilterMode.Point;
+    }
+
+    DataTex.SetPixelData(_array, 0);
+    DataTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+
+    Renderer.GetPropertyBlock(_block);
+    _block.SetTexture("_Data", DataTex);
+    Renderer.SetPropertyBlock(_block);
   }
 
   public void InitPositions(int start, int end, int sign, int2 min, int2 max) {
@@ -91,7 +186,7 @@ public class Babel3 : MonoBehaviour {
     InitPositions(middleIndex, end, 1 - sign, rightMin, max);
   }
 
-  public void SetFromPercent(float percent) {
+  public BigInteger GetIndexFromPercent(float percent) {
     var maxPossibilities = BigInteger.Pow(2, _array.Length);
     var index = (maxPossibilities * new BigInteger(Mathf.RoundToInt(percent * 1000000))) / 1000000;
 
@@ -99,12 +194,13 @@ public class Babel3 : MonoBehaviour {
       index = maxPossibilities - 1;
     }
 
-    SetFromIndex(index);
+    return index;
   }
 
   void SetFromIndex(BigInteger index) {
     int totalPixels = 0;
 
+    Profiler.BeginSample("Initial Index Calculation");
     while (true) {
       BigInteger possibilities = NPermuteK(_array.Length, totalPixels);
 
@@ -119,6 +215,7 @@ public class Babel3 : MonoBehaviour {
       index -= possibilities;
       totalPixels++;
     }
+    Profiler.EndSample();
 
     SetFromIndex(0, _array.Length, totalPixels, index);
   }
@@ -143,16 +240,25 @@ public class Babel3 : MonoBehaviour {
     BigInteger rightCombinations;
     BigInteger totalCombinations;
 
+    Profiler.BeginSample("Find Index");
     while (true) {
+      Profiler.BeginSample("Permute??");
       leftCombinations = NPermuteK(subLength, leftOccupied);
       rightCombinations = NPermuteK(subLength, rightOccupied);
+      Profiler.EndSample();
+
+      Profiler.BeginSample("Mult");
       totalCombinations = leftCombinations * rightCombinations;
+      Profiler.EndSample();
 
       if (index < totalCombinations) {
         break;
       }
 
+      Profiler.BeginSample("Oh dear");
       index -= totalCombinations;
+      Profiler.EndSample();
+
       leftOccupied++;
       rightOccupied--;
 
@@ -160,8 +266,11 @@ public class Babel3 : MonoBehaviour {
         throw new System.Exception();
       }
     }
+    Profiler.EndSample();
 
+    Profiler.BeginSample("Eval Curve");
     (BigInteger leftIndex, BigInteger rightIndex) = EvalCurve(leftCombinations, rightCombinations, index);
+    Profiler.EndSample();
 
     int middle = start + (end - start) / 2;
     SetFromIndex(start, middle, leftOccupied, leftIndex);
@@ -190,14 +299,20 @@ public class Babel3 : MonoBehaviour {
     BigInteger columnIndex = index / columnSize;
     BigInteger columnStart = columnIndex * columnSize;
 
+    BigInteger inColumnIndex = index - columnStart;
+
+    if (columnIndex % 2 == 1) {
+      inColumnIndex = (columnSize - 1) - inColumnIndex;
+    }
+
     BigInteger left, right;
 
     if (columnIndex == columnCount) {
-      left = columnIndex * 2 + (index - columnStart);
-      right = (index - columnStart);
+      left = columnIndex * 2 + inColumnIndex;
+      right = inColumnIndex;
     } else {
-      left = columnIndex * 2 + (index - columnStart + 1) / 2;
-      right = (index - columnStart) / 2;
+      left = columnIndex * 2 + (inColumnIndex + 1) / 2;
+      right = inColumnIndex / 2;
     }
 
     left = left % width;
@@ -205,9 +320,19 @@ public class Babel3 : MonoBehaviour {
     return (left, right);
   }
 
-  public Dictionary<(int, int), BigInteger> NPermuteKCache = new();
+  public Dictionary<CacheKey, BigInteger> NPermuteKCache = new();
+
+  public int Hits;
+  public int Misses;
+
   public BigInteger NPermuteK(int n, int k) {
-    if (NPermuteKCache.TryGetValue((n, k), out var early)) {
+    var key = new CacheKey() {
+      N = n,
+      K = k
+    };
+
+    if (NPermuteKCache.TryGetValue(key, out var early)) {
+      Hits++;
       return early;
     }
 
@@ -233,9 +358,22 @@ public class Babel3 : MonoBehaviour {
 
     result /= divisor;
 
-    NPermuteKCache[(n, k)] = result;
+    Misses++;
+    NPermuteKCache[key] = result;
 
     return result;
   }
 
+  public struct CacheKey : IEquatable<CacheKey> {
+
+    public int N, K;
+
+    public override int GetHashCode() {
+      return N + K;
+    }
+
+    public bool Equals(CacheKey other) {
+      return N == other.N && K == other.K;
+    }
+  }
 }
