@@ -29,6 +29,7 @@ public class Babel : MonoBehaviour {
     public int[] Patterns;
     public int[] PatternCounts;
     public int[] Allocated;
+    public BigInteger[] JumpCosts;
 
     private float _prevPercent;
     private int _prevIndex;
@@ -53,6 +54,7 @@ public class Babel : MonoBehaviour {
         Patterns = new int[ImageSize - 1];
         PatternCounts = new int[ImageSize - 1];
         Allocated = new int[ImageSize - 1];
+        JumpCosts = new BigInteger[ImageSize - 1];
     }
 
     private void Update() {
@@ -131,6 +133,12 @@ public class Babel : MonoBehaviour {
         int iterations = 0;
 
         while (true) {
+			what--;
+			if(what < 0) {
+				Debug.Log("sad");
+				return;
+			}
+
             //for (int i = levelEnd - 2; i >= levelStart; i--) {
             //    if (residual >= JumpCosts[i]) {
             //        int times = (int)(residual / JumpCosts[i]);
