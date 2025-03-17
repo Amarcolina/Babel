@@ -35,6 +35,8 @@ public class Babel3 : MonoBehaviour {
   private int _prevOffset;
   private BigInteger _index;
 
+  private BigInteger[] _factorial;
+
   private void OnEnable() {
     _block = new();
 
@@ -42,6 +44,14 @@ public class Babel3 : MonoBehaviour {
     _positions = new int2[ImageWidth * ImageWidth];
     InitPositions(0, _array.Length, 0, 0, ImageWidth);
     UpdateLookupTexture();
+
+    _factorial = new BigInteger[ImageWidth * ImageWidth + 1];
+    BigInteger factorial = 1;
+    _factorial[0] = 1;
+    for (int i = 1; i < _factorial.Length; i++) {
+      factorial *= i;
+      _factorial[i] = factorial;
+    }
   }
 
   private void Update() {
@@ -242,22 +252,16 @@ public class Babel3 : MonoBehaviour {
 
     Profiler.BeginSample("Find Index");
     while (true) {
-      Profiler.BeginSample("Permute??");
       leftCombinations = NPermuteK(subLength, leftOccupied);
       rightCombinations = NPermuteK(subLength, rightOccupied);
-      Profiler.EndSample();
 
-      Profiler.BeginSample("Mult");
       totalCombinations = leftCombinations * rightCombinations;
-      Profiler.EndSample();
 
       if (index < totalCombinations) {
         break;
       }
 
-      Profiler.BeginSample("Oh dear");
       index -= totalCombinations;
-      Profiler.EndSample();
 
       leftOccupied++;
       rightOccupied--;
@@ -320,19 +324,14 @@ public class Babel3 : MonoBehaviour {
     return (left, right);
   }
 
-  public Dictionary<CacheKey, BigInteger> NPermuteKCache = new();
-
-  public int Hits;
-  public int Misses;
-
+  public Dictionary<NKKey, BigInteger> NPermuteKCache = new();
   public BigInteger NPermuteK(int n, int k) {
-    var key = new CacheKey() {
+    var key = new NKKey() {
       N = n,
       K = k
     };
 
     if (NPermuteKCache.TryGetValue(key, out var early)) {
-      Hits++;
       return early;
     }
 
@@ -345,26 +344,17 @@ public class Babel3 : MonoBehaviour {
       k = tmp;
     }
 
-    var result = new BigInteger(1);
+    var numerator = _factorial[n] / _factorial[k];
+    var divisor = _factorial[q];
 
-    for (int i = n; i > k; i--) {
-      result *= i;
-    }
+    var result = numerator / divisor;
 
-    BigInteger divisor = new BigInteger(1);
-    for (int i = 2; i <= q; i++) {
-      divisor *= i;
-    }
-
-    result /= divisor;
-
-    Misses++;
     NPermuteKCache[key] = result;
 
     return result;
   }
 
-  public struct CacheKey : IEquatable<CacheKey> {
+  public struct NKKey : IEquatable<NKKey> {
 
     public int N, K;
 
@@ -372,7 +362,7 @@ public class Babel3 : MonoBehaviour {
       return N + K;
     }
 
-    public bool Equals(CacheKey other) {
+    public bool Equals(NKKey other) {
       return N == other.N && K == other.K;
     }
   }
