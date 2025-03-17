@@ -335,19 +335,7 @@ public class Babel3 : MonoBehaviour {
       return early;
     }
 
-    var q = n - k;
-
-    //Make sure k is largest
-    if (q < k) {
-      var tmp = q;
-      q = k;
-      k = tmp;
-    }
-
-    var numerator = _factorial[n] / _factorial[k];
-    var divisor = _factorial[q];
-
-    var result = numerator / divisor;
+    var result = _factorial[n] / _factorial[k] / _factorial[n - k];
 
     NPermuteKCache[key] = result;
 
