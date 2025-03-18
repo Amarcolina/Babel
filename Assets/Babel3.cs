@@ -416,8 +416,8 @@ public class Babel3 : MonoBehaviour {
     } else {
       //Otherwise do binary search if we have the data
 
-      int searchMin = 0;
-      int searchMax = allocationCount;
+      int searchMin = -1;
+      int searchMax = allocationCount - 1;
       int maxIt = 1000;
 
       while (true) {
@@ -425,13 +425,13 @@ public class Babel3 : MonoBehaviour {
           throw new Exception();
         }
 
-        int searchMidpoint = searchMin + (searchMax - searchMin) / 2;
+        int searchMidpoint = searchMax - (searchMax - searchMin) / 2;
 
         if (searchMidpoint >= allocationCount) {
           throw new Exception($"Wat {totalSetPixels} {subLength} {index} {allocationCount}");
         }
 
-        if (searchMidpoint == searchMin) {
+        if (searchMidpoint == searchMax) {
           var chosenTuple = _totalComboCache[(totalSetPixels, subLength, searchMidpoint)];
           leftCombinations = chosenTuple.Item1;
           rightCombinations = chosenTuple.Item2;
