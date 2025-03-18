@@ -1,5 +1,6 @@
 Shader "Unlit/TextureLookup" {
     Properties {
+        _MainTex ("MainTex", 2D) = "white" {}
         _Data    ("Data", 2D) = "white" {}
         _Lookup  ("Lookup", 2D) = "white" {}
     }

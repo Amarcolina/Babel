@@ -4,8 +4,9 @@ using System.Numerics;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Profiling;
+using UnityEngine.UI;
 
-[ExecuteAlways]
+//[ExecuteAlways]
 public class Babel3 : MonoBehaviour {
 
   private byte[] _array = new byte[16];
@@ -32,7 +33,7 @@ public class Babel3 : MonoBehaviour {
   public bool ClearCache;
 
   [Header("Rendering")]
-  public Renderer Renderer;
+  public Material TargetMaterial;
   public Texture2D LookupTex;
   public Texture2D DataTex;
 
@@ -40,7 +41,9 @@ public class Babel3 : MonoBehaviour {
   private float _prevPercent;
   private float _prevAdjustedPercent;
   private int _prevOffset;
-  private BigInteger _index;
+
+  public BigInteger Index;
+  public BigInteger MaxIndex;
 
   private BigInteger[] _factorial;
 
@@ -64,6 +67,8 @@ public class Babel3 : MonoBehaviour {
       var pos = _positions[i];
       _positionToIndex[pos.x, pos.y] = i;
     }
+
+    MaxIndex = BigInteger.Pow(2, _array.Length);
 
     UpdateLookupTexture();
 
@@ -110,7 +115,7 @@ public class Babel3 : MonoBehaviour {
         }
       }
 
-      _index = CalculateIndex();
+      Index = CalculateIndex();
       UpdateDataTexture();
     }
 
@@ -178,29 +183,29 @@ public class Babel3 : MonoBehaviour {
       BigInteger delta = (endIndex - startIndex);
       BigInteger percentDelta = delta * new BigInteger(Mathf.RoundToInt(inSlotT * 1000000)) / 1000000;
 
-      _index = startIndex + percentDelta;
+      Index = startIndex + percentDelta;
 
-      SetFromIndex(_index);
+      SetFromIndex(Index);
       UpdateDataTexture();
     }
 
     if (_prevPercent != Percent) {
       _prevPercent = Percent;
-      _index = GetIndexFromPercent(Percent);
+      Index = GetIndexFromPercent(Percent);
 
-      SetFromIndex(_index);
+      SetFromIndex(Index);
       UpdateDataTexture();
     }
 
     if (Offset != _prevOffset) {
-      _index += (Offset - _prevOffset) * BigInteger.Pow(2, OffsetScale);
+      Index += (Offset - _prevOffset) * BigInteger.Pow(2, OffsetScale);
       _prevOffset = Offset;
 
-      SetFromIndex(_index);
+      SetFromIndex(Index);
       UpdateDataTexture();
     }
 
-    SetFromIndex(_index);
+    SetFromIndex(Index);
     UpdateDataTexture();
   }
 
@@ -226,9 +231,7 @@ public class Babel3 : MonoBehaviour {
 
     LookupTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
-    Renderer.GetPropertyBlock(_block);
-    _block.SetTexture("_Lookup", LookupTex);
-    Renderer.SetPropertyBlock(_block);
+    TargetMaterial.SetTexture("_Lookup", LookupTex);
   }
 
   public void UpdateDataTexture() {
@@ -244,9 +247,7 @@ public class Babel3 : MonoBehaviour {
     DataTex.SetPixelData(_array, 0);
     DataTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
-    Renderer.GetPropertyBlock(_block);
-    _block.SetTexture("_Data", DataTex);
-    Renderer.SetPropertyBlock(_block);
+    TargetMaterial.SetTexture("_Data", DataTex);
   }
 
   public void InitPositions(int start, int end, int sign, int2 min, int2 max) {
