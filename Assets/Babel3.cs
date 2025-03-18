@@ -341,11 +341,19 @@ public class Babel3 : MonoBehaviour {
     return index;
   }
 
+  private Dictionary<(int, int), byte> _setFromIndexCache = new();
   void SetFromIndex(int start, int end, int totalSetPixels, BigInteger index) {
     int length = end - start;
 
     if (length == 1) {
       _array[start] = (byte)totalSetPixels;
+      return;
+    }
+
+    if (length == 8 && _setFromIndexCache.TryGetValue((totalSetPixels, (int)index), out var cachedByte)) {
+      for (int i = 0; i < 8; i++) {
+        _array[i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
+      }
       return;
     }
 
@@ -390,6 +398,14 @@ public class Babel3 : MonoBehaviour {
     int middle = start + (end - start) / 2;
     SetFromIndex(start, middle, leftOccupied, leftIndex);
     SetFromIndex(middle, end, rightOccupied, rightIndex);
+
+    if (length == 8) {
+      cachedByte = 0;
+      for (int i = 0; i < 8; i++) {
+        cachedByte |= (byte)(_array[i] << i);
+      }
+      _setFromIndexCache[(totalSetPixels, (int)index)] = cachedByte;
+    }
   }
 
   public (BigInteger left, BigInteger right) EvalCurve(BigInteger width, BigInteger height, BigInteger index) {
