@@ -10,6 +10,7 @@ public class Babel3 : MonoBehaviour {
 
   private byte[] _array = new byte[16];
   private int2[] _positions;
+  private int[,] _positionToIndex;
 
   public int ImageWidth;
 
@@ -21,8 +22,13 @@ public class Babel3 : MonoBehaviour {
 
   public int TotalSetPixels;
   public int Offset = 0;
+  public int OffsetScale;
 
   public bool Validate;
+  public bool ValidateIndex;
+
+  public Texture2D ToLoad;
+  public bool LoadImage;
 
   [Header("Rendering")]
   public Renderer Renderer;
@@ -43,6 +49,13 @@ public class Babel3 : MonoBehaviour {
     _array = new byte[ImageWidth * ImageWidth];
     _positions = new int2[ImageWidth * ImageWidth];
     InitPositions(0, _array.Length, 0, 0, ImageWidth);
+
+    _positionToIndex = new int[ImageWidth, ImageWidth];
+    for (int i = 0; i < _positions.Length; i++) {
+      var pos = _positions[i];
+      _positionToIndex[pos.x, pos.y] = i;
+    }
+
     UpdateLookupTexture();
 
     _factorial = new BigInteger[ImageWidth * ImageWidth + 1];
@@ -63,12 +76,33 @@ public class Babel3 : MonoBehaviour {
       UpdateLookupTexture();
     }
 
+    if (LoadImage) {
+      LoadImage = false;
+
+      for (int x = 0; x < ToLoad.width; x++) {
+        for (int y = 0; y < ToLoad.height; y++) {
+          int index = _positionToIndex[x, y];
+          if (ToLoad.GetPixel(x, y).r > 0.5f) {
+            _array[index] = 1;
+          } else {
+            _array[index] = 0;
+          }
+        }
+      }
+
+      _index = CalculateIndex();
+      UpdateDataTexture();
+    }
+
     if (Validate) {
       Validate = false;
 
       int possiblities = (int)BigInteger.Pow(2, imageSize);
       bool[] map = new bool[possiblities];
-      for (BigInteger i = 0; i < BigInteger.Pow(2, imageSize); i++) {
+
+      var bound = BigInteger.Pow(2, imageSize);
+
+      for (BigInteger i = 0; i < bound; i++) {
         SetFromIndex(i);
 
         ulong possibility = 0;
@@ -85,6 +119,24 @@ public class Babel3 : MonoBehaviour {
       }
 
       Debug.Log("No duplicates found!");
+    }
+
+    if (ValidateIndex) {
+      ValidateIndex = false;
+
+      var bound = BigInteger.Pow(2, imageSize);
+      for (BigInteger i = 0; i < bound; i++) {
+        SetFromIndex(i);
+
+        var index = CalculateIndex();
+
+        if (index != i) {
+          Debug.LogError("Indices were not the same! " + i + " : " + index);
+          break;
+        }
+      }
+
+      Debug.Log("all indices validated");
     }
 
     if (_prevAdjustedPercent != AdjustedPercent) {
@@ -120,7 +172,7 @@ public class Babel3 : MonoBehaviour {
     }
 
     if (Offset != _prevOffset) {
-      _index += (Offset - _prevOffset);
+      _index += (Offset - _prevOffset) * BigInteger.Pow(2, OffsetScale);
       _prevOffset = Offset;
 
       SetFromIndex(_index);
@@ -230,6 +282,65 @@ public class Babel3 : MonoBehaviour {
     SetFromIndex(0, _array.Length, totalPixels, index);
   }
 
+  BigInteger CalculateIndex() {
+    int totalPixels = 0;
+    for (int i = 0; i < _array.Length; i++) {
+      totalPixels += _array[i];
+    }
+
+    BigInteger index = 0;
+
+    for (int i = 0; i < totalPixels; i++) {
+      index += NPermuteK(ImageWidth * ImageWidth, i);
+    }
+
+    return index + CalculateSubIndex(0, _array.Length, totalPixels);
+  }
+
+  BigInteger CalculateSubIndex(int start, int end, int totalSetPixels) {
+    int length = end - start;
+    int middle = start + (end - start) / 2;
+
+    if (length == 1) {
+      return 0;
+    }
+
+    int subLength = length / 2;
+
+    int leftOccupied = 0;
+    int rightOccupied = 0;
+    for (int i = start; i < middle; i++) {
+      leftOccupied += _array[i];
+    }
+    for (int i = middle; i < end; i++) {
+      rightOccupied += _array[i];
+    }
+
+    int minSubOccupied = Mathf.Max(0, totalSetPixels - subLength);
+    int maxSubOccupied = totalSetPixels - minSubOccupied;
+
+    BigInteger leftIndex = CalculateSubIndex(start, middle, leftOccupied);
+    BigInteger rightIndex = CalculateSubIndex(middle, end, rightOccupied);
+
+    BigInteger index = 0;
+    BigInteger leftCombinations = NPermuteK(subLength, leftOccupied);
+    BigInteger rightCombinations = NPermuteK(subLength, rightOccupied);
+
+    index += EvalCurveInverse(leftIndex, rightIndex, leftCombinations, rightCombinations);
+
+    int maxIt = 10000;
+
+    for (int i = minSubOccupied, j = 0; i < leftOccupied; i++, j++) {
+      if (maxIt-- < 0) throw new Exception();
+
+      leftCombinations = NPermuteK(subLength, minSubOccupied + j);
+      rightCombinations = NPermuteK(subLength, maxSubOccupied - j);
+      index += leftCombinations * rightCombinations;
+    }
+
+    return index;
+  }
+
   void SetFromIndex(int start, int end, int totalSetPixels, BigInteger index) {
     int length = end - start;
 
@@ -282,7 +393,23 @@ public class Babel3 : MonoBehaviour {
   }
 
   public (BigInteger left, BigInteger right) EvalCurve(BigInteger width, BigInteger height, BigInteger index) {
+    //return ScanlineCurve(width, height, index);
     return DiagonalWrapCurve(width, height, index);
+  }
+
+  public BigInteger EvalCurveInverse(BigInteger left, BigInteger right, BigInteger width, BigInteger height) {
+    //return ScanlineCurveInverse(left, right, width, height);
+    return DiagonalWrapCurveInverse(left, right, width, height);
+  }
+
+  public (BigInteger left, BigInteger right) ScanlineCurve(BigInteger width, BigInteger height, BigInteger index) {
+    BigInteger left = index % width;
+    BigInteger right = index / width;
+    return (left, right);
+  }
+
+  public BigInteger ScanlineCurveInverse(BigInteger left, BigInteger right, BigInteger width, BigInteger height) {
+    return right * width + left;
   }
 
   public (BigInteger left, BigInteger right) SnakeCurve(BigInteger width, BigInteger height, BigInteger index) {
@@ -294,6 +421,54 @@ public class Babel3 : MonoBehaviour {
     }
 
     return (leftIndex, rightIndex);
+  }
+
+  public BigInteger SnakeCurveInverse(BigInteger left, BigInteger right, BigInteger width, BigInteger height) {
+    return 0;
+  }
+
+  public BigInteger DiagonalWrapCurveInverse(BigInteger left, BigInteger right, BigInteger width, BigInteger height) {
+    BigInteger columnCount = width / 2;
+    BigInteger columnSize = 2 * height;
+
+    BigInteger baseX = (left - right);
+
+    if (width == 0) {
+      throw new Exception();
+    }
+
+    if (baseX < 0) {
+      BigInteger widthsLarge = -baseX / width;
+      widthsLarge += 5;
+
+      baseX = (baseX + widthsLarge * width) % width;
+    }
+
+    BigInteger columnIndex = baseX / 2;
+    BigInteger columnStart = columnIndex * columnSize;
+
+    BigInteger inColumnIndex;
+    if (columnIndex == columnCount) {
+      if (columnIndex.IsEven) {
+        inColumnIndex = right;
+      } else {
+        inColumnIndex = (height - 1) - right;
+      }
+    } else {
+      if (columnIndex.IsEven) {
+        inColumnIndex = right * 2;
+        if (!baseX.IsEven) {
+          inColumnIndex++;
+        }
+      } else {
+        inColumnIndex = ((height - 1) - right) * 2;
+        if (baseX.IsEven) {
+          inColumnIndex++;
+        }
+      }
+    }
+
+    return columnStart + inColumnIndex;
   }
 
   public (BigInteger left, BigInteger right) DiagonalWrapCurve(BigInteger width, BigInteger height, BigInteger index) {
