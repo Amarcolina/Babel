@@ -365,12 +365,12 @@ public class Babel3 : MonoBehaviour {
       return;
     }
 
-    //if (length == 8 && _setFromIndexCache.TryGetValue((totalSetPixels, (int)index), out var cachedByte)) {
-    //  for (int i = 0; i < 8; i++) {
-    //    _array[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
-    //  }
-    //  return;
-    //}
+    if (length == 8 && _setFromIndexCache.TryGetValue((totalSetPixels, (int)index), out var cachedByte)) {
+      for (int i = 0; i < 8; i++) {
+        _array[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
+      }
+      return;
+    }
 
     int subLength = length / 2;
 
@@ -385,104 +385,46 @@ public class Babel3 : MonoBehaviour {
     BigInteger rightCombinations;
     BigInteger totalCombinations = 0;
 
-    Profiler.BeginSample("Find Index");
-    if (!_totalComboCache.ContainsKey((totalSetPixels, subLength, 0)) || true) {
-      //Do linear scan the first time
-      int chosenAllocation = -1;
-      bool hasFullCache = _totalComboCache.ContainsKey((totalSetPixels, subLength, allocationCount - 1));
+    BigInteger localIndex = index;
 
-      for (int i = 0; i < allocationCount; i++) {
-        IndexIt++;
-        leftOccupied = minSubOccupied + i;
-        rightOccupied = maxSubOccupied - i;
+    for (int i = 0; i < allocationCount; i++) {
+      leftOccupied = minSubOccupied + i;
+      rightOccupied = maxSubOccupied - i;
 
-        if (_totalComboCache.TryGetValue((totalSetPixels, subLength, i), out var tuple)) {
-          leftCombinations = tuple.Item1;
-          rightCombinations = tuple.Item2;
-          totalCombinations = tuple.Item3;
-        } else {
-          leftCombinations = NPermuteK(subLength, leftOccupied);
-          rightCombinations = NPermuteK(subLength, rightOccupied);
+      if (_totalComboCache.TryGetValue((totalSetPixels, subLength, i), out var tuple)) {
+        leftCombinations = tuple.Item1;
+        rightCombinations = tuple.Item2;
+        totalCombinations = tuple.Item3;
+      } else {
+        leftCombinations = NPermuteK(subLength, leftOccupied);
+        rightCombinations = NPermuteK(subLength, rightOccupied);
 
-          totalCombinations += leftCombinations * rightCombinations;
+        totalCombinations += leftCombinations * rightCombinations;
 
-          _totalComboCache[(totalSetPixels, subLength, i)] = (leftCombinations, rightCombinations, totalCombinations);
-        }
-
-        if (index < totalCombinations && chosenAllocation == -1) {
-          chosenAllocation = i;
-          if (hasFullCache) {
-            break;
-          }
-        }
+        _totalComboCache[(totalSetPixels, subLength, i)] = (leftCombinations, rightCombinations, totalCombinations);
       }
 
-      var chosenTuple = _totalComboCache[(totalSetPixels, subLength, chosenAllocation)];
-      leftCombinations = chosenTuple.Item1;
-      rightCombinations = chosenTuple.Item2;
-      totalCombinations = chosenTuple.Item3;
-      leftOccupied = minSubOccupied + chosenAllocation;
-      rightOccupied = maxSubOccupied - chosenAllocation;
-    } else {
-      //Otherwise do binary search if we have the data
-
-      int searchMin = -1;
-      int searchMax = allocationCount - 1;
-      int maxIt = 1000;
-
-      while (true) {
-        if (maxIt-- < 0) {
-          throw new Exception();
-        }
-
-        IndexIt++;
-
-        int searchMidpoint = searchMax - (searchMax - searchMin) / 2;
-
-        if (searchMidpoint >= allocationCount) {
-          throw new Exception($"Wat {totalSetPixels} {subLength} {index} {allocationCount}");
-        }
-
-        if (searchMidpoint == searchMax) {
-          var chosenTuple = _totalComboCache[(totalSetPixels, subLength, searchMidpoint)];
-          leftCombinations = chosenTuple.Item1;
-          rightCombinations = chosenTuple.Item2;
-          totalCombinations = chosenTuple.Item3;
-          leftOccupied = minSubOccupied + searchMidpoint;
-          rightOccupied = maxSubOccupied - searchMidpoint;
-          break;
-        }
-
-        var tuple = _totalComboCache[(totalSetPixels, subLength, searchMidpoint)];
-        totalCombinations = tuple.Item3;
-
-        if (index < totalCombinations) {
-          searchMax = searchMidpoint;
-        } else {
-          searchMin = searchMidpoint;
-        }
+      if (localIndex < totalCombinations) {
+        break;
       }
     }
 
-    index -= totalCombinations;
-    index += leftCombinations * rightCombinations;
-    Profiler.EndSample();
+    localIndex -= totalCombinations;
+    localIndex += leftCombinations * rightCombinations;
 
-    Profiler.BeginSample("Eval Curve");
-    (BigInteger leftIndex, BigInteger rightIndex) = EvalCurve(leftCombinations, rightCombinations, index);
-    Profiler.EndSample();
+    (BigInteger leftIndex, BigInteger rightIndex) = EvalCurve(leftCombinations, rightCombinations, localIndex);
 
     int middle = start + (end - start) / 2;
     SetFromIndex(start, middle, leftOccupied, leftIndex);
     SetFromIndex(middle, end, rightOccupied, rightIndex);
 
-    //if (length == 8) {
-    //  cachedByte = 0;
-    //  for (int i = 0; i < 8; i++) {
-    //    cachedByte |= (byte)((_array[start + i] == 0 ? 0 : 1) << i);
-    //  }
-    //  _setFromIndexCache[(totalSetPixels, (int)index)] = cachedByte;
-    //}
+    if (length == 8) {
+      cachedByte = 0;
+      for (int i = 0; i < 8; i++) {
+        cachedByte |= (byte)((_array[start + i] == 0 ? 0 : 1) << i);
+      }
+      _setFromIndexCache[(totalSetPixels, (int)index)] = cachedByte;
+    }
   }
 
   public (BigInteger left, BigInteger right) EvalCurve(BigInteger width, BigInteger height, BigInteger index) {
