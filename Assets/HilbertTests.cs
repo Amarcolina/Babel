@@ -4,7 +4,10 @@ using UnityEngine;
 public class HilbertTests : MonoBehaviour {
 
   public uint Index;
+  public uint Axes;
   public uint A, B, Bits;
+
+  public uint[] Result;
 
   //0000 - 00 00
   //0001 - 01 00
@@ -16,7 +19,7 @@ public class HilbertTests : MonoBehaviour {
   //0111 - 11 01
 
   private void OnDrawGizmos() {
-    uint[] axes = new uint[2];
+    uint[] axes = new uint[Axes];
 
     for (int i = 0; i < 32; i++) {
       bool bit = (Index & (1 << i)) != 0;
@@ -29,9 +32,14 @@ public class HilbertTests : MonoBehaviour {
       }
     }
 
-    var result = Hilbert.HilbertAxes(axes, (int)Bits);
+    Result = Hilbert.HilbertAxes(axes, (int)Bits);
 
-    Gizmos.DrawCube(new Vector3(result[0], result[1], 0), Vector3.one);
+    for (int i = 0; i < Result.Length; i++) {
+      Gizmos.color = Result[i] == 0 ? Color.black : Color.white;
+      Gizmos.DrawCube(new Vector3(i, 0, 0), Vector3.one);
+    }
+
+    //Gizmos.DrawCube(new Vector3(Result[0], Result[1], Result[1]), Vector3.one);
   }
 
 
