@@ -72,6 +72,8 @@ public class Babel3 : MonoBehaviour {
   }
 
   private void Update() {
+    IndexIt = 0;
+
     int imageSize = ImageWidth * ImageWidth;
     if (imageSize != _array.Length) {
       _array = new byte[imageSize];
@@ -351,6 +353,8 @@ public class Babel3 : MonoBehaviour {
     return index;
   }
 
+  public int IndexIt;
+
   private Dictionary<(int, int), byte> _setFromIndexCache = new();
   private Dictionary<(int, int, int), (BigInteger, BigInteger, BigInteger)> _totalComboCache = new();
   void SetFromIndex(int start, int end, int totalSetPixels, BigInteger index) {
@@ -361,12 +365,12 @@ public class Babel3 : MonoBehaviour {
       return;
     }
 
-    if (length == 8 && _setFromIndexCache.TryGetValue((totalSetPixels, (int)index), out var cachedByte)) {
-      for (int i = 0; i < 8; i++) {
-        _array[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
-      }
-      return;
-    }
+    //if (length == 8 && _setFromIndexCache.TryGetValue((totalSetPixels, (int)index), out var cachedByte)) {
+    //  for (int i = 0; i < 8; i++) {
+    //    _array[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
+    //  }
+    //  return;
+    //}
 
     int subLength = length / 2;
 
@@ -382,11 +386,13 @@ public class Babel3 : MonoBehaviour {
     BigInteger totalCombinations = 0;
 
     Profiler.BeginSample("Find Index");
-    if (!_totalComboCache.ContainsKey((totalSetPixels, subLength, 0))) {
+    if (!_totalComboCache.ContainsKey((totalSetPixels, subLength, 0)) || true) {
       //Do linear scan the first time
       int chosenAllocation = -1;
+      bool hasFullCache = _totalComboCache.ContainsKey((totalSetPixels, subLength, allocationCount - 1));
 
       for (int i = 0; i < allocationCount; i++) {
+        IndexIt++;
         leftOccupied = minSubOccupied + i;
         rightOccupied = maxSubOccupied - i;
 
@@ -400,12 +406,14 @@ public class Babel3 : MonoBehaviour {
 
           totalCombinations += leftCombinations * rightCombinations;
 
-          Debug.Log($"write {totalSetPixels} {subLength} {i}");
           _totalComboCache[(totalSetPixels, subLength, i)] = (leftCombinations, rightCombinations, totalCombinations);
         }
 
         if (index < totalCombinations && chosenAllocation == -1) {
           chosenAllocation = i;
+          if (hasFullCache) {
+            break;
+          }
         }
       }
 
@@ -413,6 +421,8 @@ public class Babel3 : MonoBehaviour {
       leftCombinations = chosenTuple.Item1;
       rightCombinations = chosenTuple.Item2;
       totalCombinations = chosenTuple.Item3;
+      leftOccupied = minSubOccupied + chosenAllocation;
+      rightOccupied = maxSubOccupied - chosenAllocation;
     } else {
       //Otherwise do binary search if we have the data
 
@@ -425,6 +435,8 @@ public class Babel3 : MonoBehaviour {
           throw new Exception();
         }
 
+        IndexIt++;
+
         int searchMidpoint = searchMax - (searchMax - searchMin) / 2;
 
         if (searchMidpoint >= allocationCount) {
@@ -436,12 +448,12 @@ public class Babel3 : MonoBehaviour {
           leftCombinations = chosenTuple.Item1;
           rightCombinations = chosenTuple.Item2;
           totalCombinations = chosenTuple.Item3;
+          leftOccupied = minSubOccupied + searchMidpoint;
+          rightOccupied = maxSubOccupied - searchMidpoint;
           break;
         }
 
         var tuple = _totalComboCache[(totalSetPixels, subLength, searchMidpoint)];
-        leftCombinations = tuple.Item1;
-        rightCombinations = tuple.Item2;
         totalCombinations = tuple.Item3;
 
         if (index < totalCombinations) {
@@ -464,13 +476,13 @@ public class Babel3 : MonoBehaviour {
     SetFromIndex(start, middle, leftOccupied, leftIndex);
     SetFromIndex(middle, end, rightOccupied, rightIndex);
 
-    if (length == 8) {
-      cachedByte = 0;
-      for (int i = 0; i < 8; i++) {
-        cachedByte |= (byte)((_array[start + i] == 0 ? 0 : 1) << i);
-      }
-      _setFromIndexCache[(totalSetPixels, (int)index)] = cachedByte;
-    }
+    //if (length == 8) {
+    //  cachedByte = 0;
+    //  for (int i = 0; i < 8; i++) {
+    //    cachedByte |= (byte)((_array[start + i] == 0 ? 0 : 1) << i);
+    //  }
+    //  _setFromIndexCache[(totalSetPixels, (int)index)] = cachedByte;
+    //}
   }
 
   public (BigInteger left, BigInteger right) EvalCurve(BigInteger width, BigInteger height, BigInteger index) {
