@@ -271,12 +271,23 @@ public class Babel3 : MonoBehaviour {
     return index;
   }
 
+  private BigInteger[] _sumCombos = null;
   void SetFromIndex(BigInteger index) {
+    if (_sumCombos == null) {
+      _sumCombos = new BigInteger[_array.Length + 1];
+
+      BigInteger totalCombinations = 0;
+      for (int i = 0; i <= _array.Length; i++) {
+        totalCombinations += NPermuteK(_array.Length, i);
+        _sumCombos[i] = totalCombinations;
+      }
+    }
+
     int totalPixels = 0;
 
     Profiler.BeginSample("Initial Index Calculation");
     while (true) {
-      BigInteger possibilities = NPermuteK(_array.Length, totalPixels);
+      BigInteger possibilities = _sumCombos[totalPixels];
 
       if (index < possibilities) {
         break;
@@ -286,12 +297,16 @@ public class Babel3 : MonoBehaviour {
         break;
       }
 
-      index -= possibilities;
       totalPixels++;
     }
+
+    BigInteger localIndex = index;
+    localIndex -= _sumCombos[totalPixels];
+    localIndex += NPermuteK(_array.Length, totalPixels);
+
     Profiler.EndSample();
 
-    SetFromIndex(0, _array.Length, totalPixels, index);
+    SetFromIndex(0, _array.Length, totalPixels, localIndex);
   }
 
   BigInteger CalculateIndex() {
