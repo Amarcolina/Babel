@@ -44,6 +44,14 @@ public class Babel3 : MonoBehaviour {
 
   private BigInteger[] _factorial;
 
+  public void SetPercent(float percent) {
+    Percent = percent;
+  }
+
+  public void SetAdjustedPercent(float percent) {
+    AdjustedPercent = percent;
+  }
+
   private void OnEnable() {
     _block = new();
 
@@ -156,6 +164,7 @@ public class Babel3 : MonoBehaviour {
 
       int slots = imageSize + 1;
       int slot = Mathf.FloorToInt(AdjustedPercent * slots);
+      slot = Mathf.Min(slots - 1, slot);
 
       float inSlotT = Mathf.InverseLerp(slot, slot + 1, AdjustedPercent * slots);
 
