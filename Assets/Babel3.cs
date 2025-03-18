@@ -29,6 +29,7 @@ public class Babel3 : MonoBehaviour {
 
   public Texture2D ToLoad;
   public bool LoadImage;
+  public bool ClearCache;
 
   [Header("Rendering")]
   public Renderer Renderer;
@@ -67,6 +68,7 @@ public class Babel3 : MonoBehaviour {
     }
 
     _setFromIndexCache.Clear();
+    _totalComboCache.Clear();
   }
 
   private void Update() {
@@ -76,6 +78,12 @@ public class Babel3 : MonoBehaviour {
       _positions = new int2[imageSize];
       InitPositions(0, _array.Length, 0, 0, ImageWidth);
       UpdateLookupTexture();
+    }
+
+    if (ClearCache) {
+      ClearCache = false;
+      _setFromIndexCache.Clear();
+      _totalComboCache.Clear();
     }
 
     if (LoadImage) {
@@ -374,31 +382,78 @@ public class Babel3 : MonoBehaviour {
     BigInteger totalCombinations = 0;
 
     Profiler.BeginSample("Find Index");
-    for (int i = 0; i < allocationCount; i++) {
-      leftOccupied = minSubOccupied + i;
-      rightOccupied = maxSubOccupied - i;
+    if (!_totalComboCache.ContainsKey((totalSetPixels, subLength, 0))) {
+      //Do linear scan the first time
+      int chosenAllocation = -1;
 
-      if (_totalComboCache.TryGetValue((totalSetPixels, subLength, i), out var tuple)) {
+      for (int i = 0; i < allocationCount; i++) {
+        leftOccupied = minSubOccupied + i;
+        rightOccupied = maxSubOccupied - i;
+
+        if (_totalComboCache.TryGetValue((totalSetPixels, subLength, i), out var tuple)) {
+          leftCombinations = tuple.Item1;
+          rightCombinations = tuple.Item2;
+          totalCombinations = tuple.Item3;
+        } else {
+          leftCombinations = NPermuteK(subLength, leftOccupied);
+          rightCombinations = NPermuteK(subLength, rightOccupied);
+
+          totalCombinations += leftCombinations * rightCombinations;
+
+          Debug.Log($"write {totalSetPixels} {subLength} {i}");
+          _totalComboCache[(totalSetPixels, subLength, i)] = (leftCombinations, rightCombinations, totalCombinations);
+        }
+
+        if (index < totalCombinations && chosenAllocation == -1) {
+          chosenAllocation = i;
+        }
+      }
+
+      var chosenTuple = _totalComboCache[(totalSetPixels, subLength, chosenAllocation)];
+      leftCombinations = chosenTuple.Item1;
+      rightCombinations = chosenTuple.Item2;
+      totalCombinations = chosenTuple.Item3;
+    } else {
+      //Otherwise do binary search if we have the data
+
+      int searchMin = 0;
+      int searchMax = allocationCount;
+      int maxIt = 1000;
+
+      while (true) {
+        if (maxIt-- < 0) {
+          throw new Exception();
+        }
+
+        int searchMidpoint = searchMin + (searchMax - searchMin) / 2;
+
+        if (searchMidpoint >= allocationCount) {
+          throw new Exception($"Wat {totalSetPixels} {subLength} {index} {allocationCount}");
+        }
+
+        if (searchMidpoint == searchMin) {
+          var chosenTuple = _totalComboCache[(totalSetPixels, subLength, searchMidpoint)];
+          leftCombinations = chosenTuple.Item1;
+          rightCombinations = chosenTuple.Item2;
+          totalCombinations = chosenTuple.Item3;
+          break;
+        }
+
+        var tuple = _totalComboCache[(totalSetPixels, subLength, searchMidpoint)];
         leftCombinations = tuple.Item1;
         rightCombinations = tuple.Item2;
         totalCombinations = tuple.Item3;
-      } else {
-        leftCombinations = NPermuteK(subLength, leftOccupied);
-        rightCombinations = NPermuteK(subLength, rightOccupied);
 
-        totalCombinations += leftCombinations * rightCombinations;
-
-        _totalComboCache[(totalSetPixels, subLength, i)] = (leftCombinations, rightCombinations, totalCombinations);
-      }
-
-      if (index < totalCombinations) {
-        break;
+        if (index < totalCombinations) {
+          searchMax = searchMidpoint;
+        } else {
+          searchMin = searchMidpoint;
+        }
       }
     }
 
     index -= totalCombinations;
     index += leftCombinations * rightCombinations;
-
     Profiler.EndSample();
 
     Profiler.BeginSample("Eval Curve");
