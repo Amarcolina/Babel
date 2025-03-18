@@ -65,6 +65,8 @@ public class Babel3 : MonoBehaviour {
       factorial *= i;
       _factorial[i] = factorial;
     }
+
+    _setFromIndexCache.Clear();
   }
 
   private void Update() {
@@ -342,6 +344,7 @@ public class Babel3 : MonoBehaviour {
   }
 
   private Dictionary<(int, int), byte> _setFromIndexCache = new();
+  private Dictionary<(int, int, int), (BigInteger, BigInteger, BigInteger)> _totalComboCache = new();
   void SetFromIndex(int start, int end, int totalSetPixels, BigInteger index) {
     int length = end - start;
 
@@ -352,7 +355,7 @@ public class Babel3 : MonoBehaviour {
 
     if (length == 8 && _setFromIndexCache.TryGetValue((totalSetPixels, (int)index), out var cachedByte)) {
       for (int i = 0; i < 8; i++) {
-        _array[i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
+        _array[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
       }
       return;
     }
@@ -361,34 +364,41 @@ public class Babel3 : MonoBehaviour {
 
     int minSubOccupied = Mathf.Max(0, totalSetPixels - subLength);
     int maxSubOccupied = totalSetPixels - minSubOccupied;
+    int allocationCount = maxSubOccupied - minSubOccupied + 1;
 
     int leftOccupied = minSubOccupied;
     int rightOccupied = maxSubOccupied;
 
     BigInteger leftCombinations;
     BigInteger rightCombinations;
-    BigInteger totalCombinations;
+    BigInteger totalCombinations = 0;
 
     Profiler.BeginSample("Find Index");
-    while (true) {
-      leftCombinations = NPermuteK(subLength, leftOccupied);
-      rightCombinations = NPermuteK(subLength, rightOccupied);
+    for (int i = 0; i < allocationCount; i++) {
+      leftOccupied = minSubOccupied + i;
+      rightOccupied = maxSubOccupied - i;
 
-      totalCombinations = leftCombinations * rightCombinations;
+      if (_totalComboCache.TryGetValue((totalSetPixels, subLength, i), out var tuple)) {
+        leftCombinations = tuple.Item1;
+        rightCombinations = tuple.Item2;
+        totalCombinations = tuple.Item3;
+      } else {
+        leftCombinations = NPermuteK(subLength, leftOccupied);
+        rightCombinations = NPermuteK(subLength, rightOccupied);
+
+        totalCombinations += leftCombinations * rightCombinations;
+
+        _totalComboCache[(totalSetPixels, subLength, i)] = (leftCombinations, rightCombinations, totalCombinations);
+      }
 
       if (index < totalCombinations) {
         break;
       }
-
-      index -= totalCombinations;
-
-      leftOccupied++;
-      rightOccupied--;
-
-      if (rightOccupied < minSubOccupied) {
-        throw new System.Exception();
-      }
     }
+
+    index -= totalCombinations;
+    index += leftCombinations * rightCombinations;
+
     Profiler.EndSample();
 
     Profiler.BeginSample("Eval Curve");
@@ -402,7 +412,7 @@ public class Babel3 : MonoBehaviour {
     if (length == 8) {
       cachedByte = 0;
       for (int i = 0; i < 8; i++) {
-        cachedByte |= (byte)(_array[i] << i);
+        cachedByte |= (byte)((_array[start + i] == 0 ? 0 : 1) << i);
       }
       _setFromIndexCache[(totalSetPixels, (int)index)] = cachedByte;
     }
