@@ -3,6 +3,21 @@ using System.Numerics;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// The BabelCodec defines a sequence of bit-vectors that has the following properties:
+///  - The first big-vector in the sequence is a vector of all zeros
+///  - The last bit-vector in the sequence is a vector of all ones
+///  - Every possible combination of bit-vectors appears exactly once in the sequence
+///  - Vectors with fewer set bits are ordered before vectors with more set bits
+///  
+///  - Adjacent vectors usually differ by exactly one bit
+///  - The differing bit between two adjacent vectors is roughly uniformly distributed
+///  - Vectors within a neighborhood are perceptually "similar"
+/// 
+/// The BabelCodec class provides useful methods for exploring the codec and finding bit vectors
+///  - Decode returns the bit-vector at the given index in the sequence
+///  - Encode returns the index in the sequence of a given big-vector
+/// </summary>
 public class BabelCodec {
 
   public readonly int Bits;
