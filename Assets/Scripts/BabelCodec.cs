@@ -10,8 +10,9 @@ using UnityEngine;
 ///  - Every possible combination of bit-vectors appears exactly once in the sequence
 ///  - Vectors with fewer set bits are ordered before vectors with more set bits
 ///  
-///  - Adjacent vectors usually differ by exactly one bit
-///  - The differing bit between two adjacent vectors is roughly uniformly distributed
+///  - Adjacent vectors usually differ by exactly two bits, one that turned on and one that turned off
+///  - The two differing bits between two adjacent vectors are usually close to each other
+///  - The differing bits between two adjacent vectors is roughly uniformly distributed
 ///  - Vectors within a neighborhood are perceptually "similar"
 /// 
 /// The BabelCodec class provides useful methods for exploring the codec and finding bit vectors
