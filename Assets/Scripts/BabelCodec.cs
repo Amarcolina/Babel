@@ -93,7 +93,7 @@ public class BabelCodec {
     localIndex -= _prefixCombinations[setCount];
     localIndex += NPermuteK(Bits, setCount);
 
-    DecodeRecursive(0, Bits, setCount, localIndex, bitSet, 0);
+    DecodeRecursive(0, Bits, setCount, localIndex, bitSet);
   }
 
   /// <summary>
@@ -158,7 +158,7 @@ public class BabelCodec {
     return 1f;
   }
 
-  private void DecodeRecursive(int start, int end, int setCount, BigInteger index, byte[] bitSet, int depth) {
+  private void DecodeRecursive(int start, int end, int setCount, BigInteger index, byte[] bitSet) {
     int length = end - start;
 
     if (length == 1) {
@@ -217,12 +217,8 @@ public class BabelCodec {
 
     int middle = start + (end - start) / 2;
 
-    if (depth > 50) {
-      throw new Exception(start + " : " + end + " : " + middle);
-    }
-
-    DecodeRecursive(start, middle, leftOccupied, leftIndex, bitSet, depth + 1);
-    DecodeRecursive(middle, end, rightOccupied, rightIndex, bitSet, depth + 1);
+    DecodeRecursive(start, middle, leftOccupied, leftIndex, bitSet);
+    DecodeRecursive(middle, end, rightOccupied, rightIndex, bitSet);
 
     if (length == 8) {
       cachedByte = 0;
