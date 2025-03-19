@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Unity.Mathematics;
+using UnityEditor.Graphs;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.UI;
@@ -16,9 +17,6 @@ public class Babel3 : MonoBehaviour {
   public int ImageWidth;
 
   [Range(0, 1)]
-  public float AdjustedPercent;
-
-  [Range(0, 1)]
   public float Percent;
 
   public int TotalSetPixels;
@@ -30,6 +28,9 @@ public class Babel3 : MonoBehaviour {
 
   public Texture2D ToLoad;
   public bool LoadImage;
+  public bool LoadAnimate;
+  public float AnimSigArg;
+  public float AnimTime;
   public bool ClearCache;
 
   [Header("Rendering")]
@@ -49,10 +50,6 @@ public class Babel3 : MonoBehaviour {
 
   public void SetPercent(float percent) {
     Percent = percent;
-  }
-
-  public void SetAdjustedPercent(float percent) {
-    AdjustedPercent = percent;
   }
 
   private void OnEnable() {
@@ -84,6 +81,42 @@ public class Babel3 : MonoBehaviour {
     _totalComboCache.Clear();
   }
 
+  private bool _isAnimating;
+  private BigInteger _prevKeyframe;
+  private float _prevKeyframeTime;
+  private List<BigInteger> _animFrames = new();
+
+  public bool IsAnimating => _isAnimating;
+  public BigInteger AnimStart, AnimEnd;
+
+  public void SetFromAdjustedPercent(float adjustedPercent) {
+    int imageSize = ImageWidth * ImageWidth;
+
+    _isAnimating = false;
+    _animFrames.Clear();
+
+    int slots = imageSize + 1;
+    int slot = Mathf.FloorToInt(adjustedPercent * slots);
+    slot = Mathf.Min(slots - 1, slot);
+
+    float inSlotT = Mathf.InverseLerp(slot, slot + 1, adjustedPercent * slots);
+
+    BigInteger startIndex = 0;
+    for (int i = 0; i < slot; i++) {
+      startIndex += NPermuteK(imageSize, i);
+    }
+
+    BigInteger endIndex = startIndex + NPermuteK(imageSize, slot);
+
+    BigInteger delta = (endIndex - startIndex);
+    BigInteger percentDelta = delta * new BigInteger(Mathf.RoundToInt(inSlotT * 1000000)) / 1000000;
+
+    Index = startIndex + percentDelta;
+
+    SetFromIndex(Index);
+    UpdateDataTexture();
+  }
+
   private void Update() {
     IndexIt = 0;
 
@@ -101,8 +134,31 @@ public class Babel3 : MonoBehaviour {
       _totalComboCache.Clear();
     }
 
+    if (_isAnimating) {
+      var nextKeyframe = _animFrames[_animFrames.Count - 1];
+
+      float keyframeT = Mathf.InverseLerp(_prevKeyframeTime, _prevKeyframeTime + 0.1f, Time.time);
+
+      Index = _prevKeyframe + (nextKeyframe - _prevKeyframe) * new BigInteger((int)(keyframeT * 10000)) / 10000;
+
+      if (keyframeT >= 1f) {
+        _prevKeyframe = nextKeyframe;
+        _prevKeyframeTime = Time.time;
+        _animFrames.RemoveAt(_animFrames.Count - 1);
+      }
+
+      SetFromIndex(Index);
+      UpdateDataTexture();
+
+      if (_animFrames.Count == 0) {
+        _isAnimating = false;
+      }
+    }
+
     if (LoadImage) {
       LoadImage = false;
+
+      var copy = (byte[])_array.Clone();
 
       for (int x = 0; x < ToLoad.width; x++) {
         for (int y = 0; y < ToLoad.height; y++) {
@@ -115,8 +171,52 @@ public class Babel3 : MonoBehaviour {
         }
       }
 
-      Index = CalculateIndex();
-      UpdateDataTexture();
+      AnimStart = Index;
+      AnimEnd = CalculateIndex();
+
+      if (AnimEnd != AnimStart) {
+        _animFrames.Clear();
+
+        var firstPart = new List<BigInteger>();
+        var secondPart = new List<BigInteger>();
+
+        BigInteger animFrame;
+        bool currSign;
+        BigInteger step;
+        BigInteger stepStep = 300;
+        BigInteger stepStepStep = 257;
+        BigInteger stepStepStepStep = 256;
+
+        BigInteger halfway = (AnimStart + AnimEnd) / 2;
+
+        animFrame = AnimStart;
+        currSign = animFrame > halfway;
+        step = (AnimEnd > AnimStart) ? 256 : -256;
+
+        while (animFrame > halfway == currSign) {
+          firstPart.Add(animFrame);
+          secondPart.Add(AnimEnd - (animFrame - AnimStart));
+
+          animFrame += step / 256;
+          step = (step * stepStep / 256);
+          stepStep = (stepStep * stepStepStep / 256);
+          stepStepStep = (stepStepStep * stepStepStepStep / 256);
+          stepStepStepStep = stepStepStepStep * 269 / 256;
+        }
+
+        firstPart.Reverse();
+
+        _animFrames.Clear();
+        _animFrames.AddRange(secondPart);
+        _animFrames.AddRange(firstPart);
+
+        _isAnimating = true;
+
+        _prevKeyframe = Index;
+        _prevKeyframeTime = Time.time;
+      }
+
+      copy.CopyTo(_array, 0);
     }
 
     if (Validate) {
@@ -164,31 +264,6 @@ public class Babel3 : MonoBehaviour {
       Debug.Log("all indices validated");
     }
 
-    if (_prevAdjustedPercent != AdjustedPercent) {
-      _prevAdjustedPercent = AdjustedPercent;
-
-      int slots = imageSize + 1;
-      int slot = Mathf.FloorToInt(AdjustedPercent * slots);
-      slot = Mathf.Min(slots - 1, slot);
-
-      float inSlotT = Mathf.InverseLerp(slot, slot + 1, AdjustedPercent * slots);
-
-      BigInteger startIndex = 0;
-      for (int i = 0; i < slot; i++) {
-        startIndex += NPermuteK(imageSize, i);
-      }
-
-      BigInteger endIndex = startIndex + NPermuteK(imageSize, slot);
-
-      BigInteger delta = (endIndex - startIndex);
-      BigInteger percentDelta = delta * new BigInteger(Mathf.RoundToInt(inSlotT * 1000000)) / 1000000;
-
-      Index = startIndex + percentDelta;
-
-      SetFromIndex(Index);
-      UpdateDataTexture();
-    }
-
     if (_prevPercent != Percent) {
       _prevPercent = Percent;
       Index = GetIndexFromPercent(Percent);
@@ -204,9 +279,25 @@ public class Babel3 : MonoBehaviour {
       SetFromIndex(Index);
       UpdateDataTexture();
     }
+  }
 
-    SetFromIndex(Index);
-    UpdateDataTexture();
+  public float CalculateAdjustedPercent(BigInteger value) {
+    int imageSize = ImageWidth * ImageWidth;
+    int slots = imageSize + 1;
+
+    BigInteger index = 0;
+    for (int i = 0; i < slots; i++) {
+      BigInteger nextIndex = index + NPermuteK(imageSize, i);
+      if (value < nextIndex) {
+        float slotA = (i + 0f) / slots;
+        float slotB = (i + 1f) / slots;
+        float slotT = (long)((value - index) * 10000 / (nextIndex - index)) / 10000.0f;
+        return Mathf.Lerp(slotA, slotB, slotT);
+      }
+      index = nextIndex;
+    }
+
+    return 1f;
   }
 
   public void UpdateLookupTexture() {

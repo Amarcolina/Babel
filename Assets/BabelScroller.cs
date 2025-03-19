@@ -1,3 +1,4 @@
+using System.Numerics;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -6,7 +7,13 @@ public class BabelScroller : MonoBehaviour, IPointerDownHandler, IDragHandler {
 
   public Babel3 Babel;
   public RectTransform Cursor;
+  public RectTransform AnimPreview;
   public float CursorMin, CursorMax;
+  public float RangeMin, RangeMax;
+
+  private BigInteger _currIndex;
+  private BigInteger _prevAnimEnd;
+  private float _posAnimEnd;
 
   public float CalcPercent(PointerEventData eventData) {
     var scaler = GetComponentInParent<CanvasScaler>();
@@ -20,16 +27,40 @@ public class BabelScroller : MonoBehaviour, IPointerDownHandler, IDragHandler {
       return;
     }
 
-    Babel.AdjustedPercent = Mathf.Clamp01(CalcPercent(eventData));
+    Babel.SetFromAdjustedPercent(Mathf.Clamp01(CalcPercent(eventData)));
   }
 
   public void OnPointerDown(PointerEventData eventData) {
-    Babel.AdjustedPercent = Mathf.Clamp01(CalcPercent(eventData));
+    Babel.SetFromAdjustedPercent(Mathf.Clamp01(CalcPercent(eventData)));
   }
 
   void Update() {
-    float factor = (int)(Babel.Index * 10000 / Babel.MaxIndex) / 10000.0f;
-    Cursor.localPosition = new Vector3(Mathf.Lerp(CursorMin, CursorMax, factor), 0, 0);
+    if (_currIndex != Babel.Index) {
+      float factor = Babel.CalculateAdjustedPercent(Babel.Index);
+      Cursor.localPosition = new UnityEngine.Vector3(Mathf.Lerp(CursorMin, CursorMax, factor), 0, 0);
+
+      _currIndex = Babel.Index;
+    }
+
+    if (Babel.IsAnimating) {
+      AnimPreview.gameObject.SetActive(true);
+      if (_prevAnimEnd != Babel.AnimEnd) {
+        _posAnimEnd = Babel.CalculateAdjustedPercent(Babel.AnimEnd);
+        _prevAnimEnd = Babel.AnimEnd;
+      }
+
+      float p0 = Babel.CalculateAdjustedPercent(Babel.Index);
+      float p1 = _posAnimEnd;
+
+      float min = Mathf.Lerp(RangeMin, RangeMax, Mathf.Min(p0, p1));
+      float max = Mathf.Lerp(RangeMin, RangeMax, Mathf.Max(p0, p1));
+
+      AnimPreview.localPosition = new UnityEngine.Vector3(min, 0, 0);
+      AnimPreview.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, max - min);
+    } else {
+      AnimPreview.gameObject.SetActive(false);
+      _prevAnimEnd = default;
+    }
   }
 
 }
