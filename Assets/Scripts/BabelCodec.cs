@@ -31,6 +31,13 @@ public class BabelCodec {
   private Dictionary<(int, int, int), (BigInteger, BigInteger, BigInteger)> _prefixCache = new();
 
   public BabelCodec(int bits) {
+    if (bits <= 0) {
+      throw new ArgumentException($"Bit count must be positive and non-zero but was {bits}");
+    }
+    if (!Mathf.IsPowerOfTwo(bits)) {
+      throw new ArgumentException($"Bit count must be a power of two but was {bits}");
+    }
+
     MaxIndex = BigInteger.Pow(2, bits) - 1;
 
     //Init factorial lookup
