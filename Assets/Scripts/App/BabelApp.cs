@@ -43,6 +43,16 @@ public class BabelApp : MonoBehaviour {
   private float _prevKeyframeTime;
   private List<BigInteger> _animFrames = new();
 
+  public void LoadRandom() {
+    var r = Unity.Mathematics.Random.CreateFromIndex((uint)DateTime.Now.GetHashCode());
+    for (int i = 0; i < _bitVector.Length; i++) {
+      _bitVector[i] = (byte)(r.NextBool() ? 1 : 0);
+    }
+
+    _index = Codec.Encode(_bitVector);
+    UpdateDataTexture();
+  }
+
   public void LoadImage(Texture2D texture) {
     Assert.AreEqual(texture.width, ImageWidth);
     Assert.AreEqual(texture.height, ImageWidth);
