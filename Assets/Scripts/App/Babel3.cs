@@ -39,15 +39,11 @@ public class Babel3 : MonoBehaviour {
   public Texture2D LookupTex;
   public Texture2D DataTex;
 
-  private MaterialPropertyBlock _block;
   private float _prevPercent;
-  private float _prevAdjustedPercent;
   private int _prevOffset;
 
   public BigInteger Index;
   public BigInteger MaxIndex;
-
-  private BigInteger[] _factorial;
 
   private BabelCodec _codec;
 
@@ -56,8 +52,6 @@ public class Babel3 : MonoBehaviour {
   }
 
   private void OnEnable() {
-    _block = new();
-
     _codec = new BabelCodec(ImageWidth * ImageWidth);
 
     _array = new byte[ImageWidth * ImageWidth];
@@ -73,14 +67,6 @@ public class Babel3 : MonoBehaviour {
     MaxIndex = BigInteger.Pow(2, _array.Length);
 
     UpdateLookupTexture();
-
-    _factorial = new BigInteger[ImageWidth * ImageWidth + 1];
-    BigInteger factorial = 1;
-    _factorial[0] = 1;
-    for (int i = 1; i < _factorial.Length; i++) {
-      factorial *= i;
-      _factorial[i] = factorial;
-    }
   }
 
   private bool _isAnimating;
@@ -333,36 +319,5 @@ public class Babel3 : MonoBehaviour {
 
   BigInteger CalculateIndex() {
     return _codec.Encode(_array);
-  }
-
-  public Dictionary<NKKey, BigInteger> NPermuteKCache = new();
-  public BigInteger NPermuteK(int n, int k) {
-    var key = new NKKey() {
-      N = n,
-      K = k
-    };
-
-    if (NPermuteKCache.TryGetValue(key, out var early)) {
-      return early;
-    }
-
-    var result = _factorial[n] / _factorial[k] / _factorial[n - k];
-
-    NPermuteKCache[key] = result;
-
-    return result;
-  }
-
-  public struct NKKey : IEquatable<NKKey> {
-
-    public int N, K;
-
-    public override int GetHashCode() {
-      return N + K;
-    }
-
-    public bool Equals(NKKey other) {
-      return N == other.N && K == other.K;
-    }
   }
 }
