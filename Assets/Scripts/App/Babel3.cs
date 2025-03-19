@@ -1,3 +1,4 @@
+using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -48,12 +49,16 @@ public class Babel3 : MonoBehaviour {
 
   private BigInteger[] _factorial;
 
+  private BabelCodec _codec;
+
   public void SetPercent(float percent) {
     Percent = percent;
   }
 
   private void OnEnable() {
     _block = new();
+
+    _codec = new BabelCodec(ImageWidth * ImageWidth);
 
     _array = new byte[ImageWidth * ImageWidth];
     _positions = new int2[ImageWidth * ImageWidth];
@@ -376,6 +381,9 @@ public class Babel3 : MonoBehaviour {
 
   private BigInteger[] _sumCombos = null;
   void SetFromIndex(BigInteger index) {
+    _codec.Decode(index, _array);
+    return;
+
     if (_sumCombos == null) {
       _sumCombos = new BigInteger[_array.Length + 1];
 

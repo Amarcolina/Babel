@@ -8,7 +8,8 @@ public class BabelDial : MonoBehaviour,
   IPointerExitHandler,
   IPointerDownHandler,
   IPointerUpHandler,
-  IDragHandler {
+  IDragHandler,
+  IEndDragHandler {
 
   public Babel3 Babel;
   public Image Graphic;
@@ -26,6 +27,10 @@ public class BabelDial : MonoBehaviour,
   private double _angle;
 
   private double _increment;
+
+  void Start() {
+    Graphic.color = NormalColor;
+  }
 
   public void OnDrag(PointerEventData eventData) {
     Vector2 dragDelta = eventData.position - eventData.pressPosition;
@@ -65,10 +70,18 @@ public class BabelDial : MonoBehaviour,
   }
 
   public void OnPointerEnter(PointerEventData eventData) {
-    Graphic.color = HoverColor;
+    if (!eventData.dragging) {
+      Graphic.color = HoverColor;
+    }
   }
 
   public void OnPointerExit(PointerEventData eventData) {
+    if (!eventData.dragging) {
+      Graphic.color = NormalColor;
+    }
+  }
+
+  public void OnEndDrag(PointerEventData eventData) {
     Graphic.color = NormalColor;
   }
 }

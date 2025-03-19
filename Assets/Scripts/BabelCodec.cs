@@ -38,6 +38,7 @@ public class BabelCodec {
       throw new ArgumentException($"Bit count must be a power of two but was {bits}");
     }
 
+    Bits = bits;
     MaxIndex = BigInteger.Pow(2, bits) - 1;
 
     //Init factorial lookup
@@ -68,7 +69,10 @@ public class BabelCodec {
     _prefixCache.Clear();
   }
 
-  public void Decode(BigInteger index, byte[] array) {
+  /// <summary>
+  /// Output the bit-set found at the given index in the babel sequence
+  /// </summary>
+  public void Decode(BigInteger index, byte[] bitSet) {
     int setCount = 0;
 
     while (true) {
@@ -89,13 +93,16 @@ public class BabelCodec {
     localIndex -= _prefixCombinations[setCount];
     localIndex += NPermuteK(Bits, setCount);
 
-    DecodeRecursive(0, Bits, setCount, localIndex, array);
+    DecodeRecursive(0, Bits, setCount, localIndex, bitSet, 0);
   }
 
-  public BigInteger Encode(byte[] array) {
+  /// <summary>
+  /// Calculate the index of the given bit-set in the babel sequence
+  /// </summary>
+  public BigInteger Encode(byte[] bitSet) {
     int setCount = 0;
     for (int i = 0; i < Bits; i++) {
-      setCount += array[i];
+      setCount += bitSet[i];
     }
 
     BigInteger index = 0;
@@ -104,7 +111,7 @@ public class BabelCodec {
       index += NPermuteK(Bits, i);
     }
 
-    return index + EncodeRecursive(0, Bits, setCount, array);
+    return index + EncodeRecursive(0, Bits, setCount, bitSet);
   }
 
   public BigInteger CalculateIndexFromPercent(float percent) {
@@ -151,17 +158,17 @@ public class BabelCodec {
     return 1f;
   }
 
-  private void DecodeRecursive(int start, int end, int setCount, BigInteger index, byte[] array) {
+  private void DecodeRecursive(int start, int end, int setCount, BigInteger index, byte[] bitSet, int depth) {
     int length = end - start;
 
     if (length == 1) {
-      array[start] = (byte)setCount;
+      bitSet[start] = (byte)setCount;
       return;
     }
 
     if (length == 8 && _leafCache.TryGetValue((setCount, (int)index), out var cachedByte)) {
       for (int i = 0; i < 8; i++) {
-        array[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
+        bitSet[start + i] = (cachedByte & (1 << i)) == 0 ? (byte)0 : (byte)1;
       }
       return;
     }
@@ -209,19 +216,24 @@ public class BabelCodec {
     (BigInteger leftIndex, BigInteger rightIndex) = EvalDiagonalWrapCurve(leftCombinations, rightCombinations, localIndex);
 
     int middle = start + (end - start) / 2;
-    DecodeRecursive(start, middle, leftOccupied, leftIndex, array);
-    DecodeRecursive(middle, end, rightOccupied, rightIndex, array);
+
+    if (depth > 50) {
+      throw new Exception(start + " : " + end + " : " + middle);
+    }
+
+    DecodeRecursive(start, middle, leftOccupied, leftIndex, bitSet, depth + 1);
+    DecodeRecursive(middle, end, rightOccupied, rightIndex, bitSet, depth + 1);
 
     if (length == 8) {
       cachedByte = 0;
       for (int i = 0; i < 8; i++) {
-        cachedByte |= (byte)((array[start + i] == 0 ? 0 : 1) << i);
+        cachedByte |= (byte)((bitSet[start + i] == 0 ? 0 : 1) << i);
       }
       _leafCache[(setCount, (int)index)] = cachedByte;
     }
   }
 
-  private BigInteger EncodeRecursive(int start, int end, int setCount, byte[] array) {
+  private BigInteger EncodeRecursive(int start, int end, int setCount, byte[] bitSet) {
     int length = end - start;
     int middle = start + (end - start) / 2;
 
@@ -234,17 +246,17 @@ public class BabelCodec {
     int leftOccupied = 0;
     int rightOccupied = 0;
     for (int i = start; i < middle; i++) {
-      leftOccupied += array[i];
+      leftOccupied += bitSet[i];
     }
     for (int i = middle; i < end; i++) {
-      rightOccupied += array[i];
+      rightOccupied += bitSet[i];
     }
 
     int minSubOccupied = Mathf.Max(0, setCount - subLength);
     int maxSubOccupied = setCount - minSubOccupied;
 
-    BigInteger leftIndex = EncodeRecursive(start, middle, leftOccupied, array);
-    BigInteger rightIndex = EncodeRecursive(middle, end, rightOccupied, array);
+    BigInteger leftIndex = EncodeRecursive(start, middle, leftOccupied, bitSet);
+    BigInteger rightIndex = EncodeRecursive(middle, end, rightOccupied, bitSet);
 
     BigInteger index = 0;
     BigInteger leftCombinations = NPermuteK(subLength, leftOccupied);
