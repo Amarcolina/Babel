@@ -121,7 +121,7 @@ public class BabelCodec {
   public BigInteger CalculateNormalizedIndexFromPercent(float percent) {
     int slots = Bits + 1;
     int slot = Mathf.FloorToInt(percent * slots);
-    slot = Mathf.Clamp(slots, 0, slot - 1);
+    slot = Mathf.Clamp(slot, 0, slots - 1);
 
     float inSlotT = Mathf.InverseLerp(slot, slot + 1, percent * slots);
 
@@ -342,7 +342,7 @@ public class BabelCodec {
   }
 
   private BigInteger Fraction(BigInteger value, float fraction) {
-    return value * ((long)fraction * int.MaxValue) / int.MaxValue;
+    return value * (long)((double)fraction * int.MaxValue) / int.MaxValue;
   }
 
   private float Fraction(BigInteger numerator, BigInteger denominator) {

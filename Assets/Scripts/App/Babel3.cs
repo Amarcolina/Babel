@@ -92,29 +92,10 @@ public class Babel3 : MonoBehaviour {
   public BigInteger AnimStart, AnimEnd;
 
   public void SetFromAdjustedPercent(float adjustedPercent) {
-    int imageSize = ImageWidth * ImageWidth;
-
     _isAnimating = false;
     _animFrames.Clear();
 
-    int slots = imageSize + 1;
-    int slot = Mathf.FloorToInt(adjustedPercent * slots);
-    slot = Mathf.Min(slots - 1, slot);
-
-    float inSlotT = Mathf.InverseLerp(slot, slot + 1, adjustedPercent * slots);
-
-    BigInteger startIndex = 0;
-    for (int i = 0; i < slot; i++) {
-      startIndex += NPermuteK(imageSize, i);
-    }
-
-    BigInteger endIndex = startIndex + NPermuteK(imageSize, slot);
-
-    BigInteger delta = (endIndex - startIndex);
-    BigInteger percentDelta = delta * new BigInteger(Mathf.RoundToInt(inSlotT * 1000000)) / 1000000;
-
-    Index = startIndex + percentDelta;
-
+    Index = _codec.CalculateNormalizedIndexFromPercent(adjustedPercent);
     SetFromIndex(Index);
     UpdateDataTexture();
   }
