@@ -3,26 +3,12 @@ using System.Collections.Generic;
 using System.Numerics;
 using UnityEngine;
 
-public class Babel3 : MonoBehaviour {
+public class BabelApp : MonoBehaviour {
 
   public int ImageWidth;
 
-  [Range(0, 1)]
-  public float Percent;
-
-  public int TotalSetPixels;
-  public int Offset = 0;
-  public int OffsetScale;
-
-  public bool Validate;
-  public bool ValidateIndex;
-
   public Texture2D ToLoad;
   public bool LoadImage;
-  public bool LoadAnimate;
-  public float AnimSigArg;
-  public float AnimTime;
-  public bool ClearCache;
 
   [Header("Rendering")]
   public Material TargetMaterial;
@@ -30,7 +16,22 @@ public class Babel3 : MonoBehaviour {
 
   private int _prevOffset;
 
-  public BigInteger Index;
+  private BigInteger _index;
+  public BigInteger Index {
+    get => _index;
+    set {
+      value = BigInteger.Max(0, value);
+      value = BigInteger.Min(Codec.MaxIndex, value);
+
+      if (value == _index) {
+        return;
+      }
+
+      _index = value;
+      SetFromIndex(_index);
+      UpdateDataTexture();
+    }
+  }
 
   public BabelCodec Codec;
   public BabelImage Image;
@@ -64,11 +65,6 @@ public class Babel3 : MonoBehaviour {
   }
 
   private void Update() {
-    int imageSize = ImageWidth * ImageWidth;
-    if (imageSize != _bitVector.Length) {
-      _bitVector = new byte[imageSize];
-    }
-
     if (_isAnimating) {
       var nextKeyframe = _animFrames[_animFrames.Count - 1];
 
@@ -152,16 +148,6 @@ public class Babel3 : MonoBehaviour {
       }
 
       copy.CopyTo(_bitVector, 0);
-    }
-
-    if (Offset != _prevOffset) {
-      Index += (Offset - _prevOffset) * BigInteger.Pow(2, OffsetScale);
-      Index = BigInteger.Max(0, Index);
-      Index = BigInteger.Min(Codec.MaxIndex, Index);
-      _prevOffset = Offset;
-
-      SetFromIndex(Index);
-      UpdateDataTexture();
     }
   }
 

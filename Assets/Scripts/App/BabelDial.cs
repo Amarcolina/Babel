@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -11,7 +12,7 @@ public class BabelDial : MonoBehaviour,
   IDragHandler,
   IEndDragHandler {
 
-  public Babel3 Babel;
+  public BabelApp Babel;
   public Image Graphic;
   public Image Face;
   public Sprite[] FaceSprites;
@@ -22,7 +23,7 @@ public class BabelDial : MonoBehaviour,
   public float Power;
   public float RotationSensitivity;
 
-  private double _startOffset;
+  private BigInteger _startIndex;
   private double _startAngle;
   private double _angle;
 
@@ -33,7 +34,7 @@ public class BabelDial : MonoBehaviour,
   }
 
   public void OnDrag(PointerEventData eventData) {
-    Vector2 dragDelta = eventData.position - eventData.pressPosition;
+    UnityEngine.Vector2 dragDelta = eventData.position - eventData.pressPosition;
     _increment = Math.Sign(dragDelta.x) * Math.Pow(Math.Abs(dragDelta.x), Power);
 
     _angle = _startAngle + _increment * RotationSensitivity;
@@ -47,7 +48,7 @@ public class BabelDial : MonoBehaviour,
     }
 
     double tmpAngle = _angle;
-    Face.transform.localRotation = Quaternion.identity;
+    Face.transform.localRotation = UnityEngine.Quaternion.identity;
     while (tmpAngle >= 90) {
       Face.transform.Rotate(0, 0, 90);
       tmpAngle -= 90;
@@ -55,11 +56,11 @@ public class BabelDial : MonoBehaviour,
 
     Face.sprite = FaceSprites[(int)Math.Floor(tmpAngle / 90 * FaceSprites.Length)];
 
-    Babel.Offset = (int)Math.Round(_startOffset + _increment * Sensitivity);
+    Babel.Index = _startIndex + (int)Math.Round(_increment * Sensitivity);
   }
 
   public void OnPointerDown(PointerEventData eventData) {
-    _startOffset = Babel.Offset;
+    _startIndex = Babel.Index;
     _startAngle = _angle;
     Graphic.color = PressColor;
   }

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 public class BabelScroller : MonoBehaviour, IPointerDownHandler, IDragHandler {
 
-  public Babel3 Babel;
+  public BabelApp Babel;
   public RectTransform Cursor;
   public RectTransform AnimPreview;
   public float CursorMin, CursorMax;
