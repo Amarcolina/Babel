@@ -1,17 +1,9 @@
-using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using Unity.Mathematics;
-using UnityEditor.Graphs;
 using UnityEngine;
-using UnityEngine.Profiling;
-using UnityEngine.UI;
 
-//[ExecuteAlways]
 public class Babel3 : MonoBehaviour {
-
-  private byte[] _array = new byte[16];
 
   public int ImageWidth;
 
@@ -36,28 +28,22 @@ public class Babel3 : MonoBehaviour {
   public Material TargetMaterial;
   public Texture2D DataTex;
 
-  private float _prevPercent;
   private int _prevOffset;
 
   public BigInteger Index;
-  public BigInteger MaxIndex;
 
-  private BabelCodec _codec;
-  private BabelImage _image;
+  public BabelCodec Codec;
+  public BabelImage Image;
 
-  public void SetPercent(float percent) {
-    Percent = percent;
-  }
+  private byte[] _bitVector;
 
   private void OnEnable() {
-    _codec = new BabelCodec(ImageWidth * ImageWidth);
-    _image = new BabelImage(ImageWidth * ImageWidth);
+    int bits = ImageWidth * ImageWidth;
+    Codec = new BabelCodec(bits);
+    Image = new BabelImage(bits);
+    _bitVector = new byte[bits];
 
-    _array = new byte[ImageWidth * ImageWidth];
-
-    MaxIndex = BigInteger.Pow(2, _array.Length);
-
-    TargetMaterial.SetTexture("_Lookup", _image.GenerateLookupTexture());
+    TargetMaterial.SetTexture("_Lookup", Image.GenerateLookupTexture());
   }
 
   private bool _isAnimating;
@@ -72,15 +58,15 @@ public class Babel3 : MonoBehaviour {
     _isAnimating = false;
     _animFrames.Clear();
 
-    Index = _codec.CalculateNormalizedIndexFromPercent(adjustedPercent);
+    Index = Codec.CalculateNormalizedIndexFromPercent(adjustedPercent);
     SetFromIndex(Index);
     UpdateDataTexture();
   }
 
   private void Update() {
     int imageSize = ImageWidth * ImageWidth;
-    if (imageSize != _array.Length) {
-      _array = new byte[imageSize];
+    if (imageSize != _bitVector.Length) {
+      _bitVector = new byte[imageSize];
     }
 
     if (_isAnimating) {
@@ -107,15 +93,15 @@ public class Babel3 : MonoBehaviour {
     if (LoadImage) {
       LoadImage = false;
 
-      var copy = (byte[])_array.Clone();
+      var copy = (byte[])_bitVector.Clone();
 
       for (int x = 0; x < ToLoad.width; x++) {
         for (int y = 0; y < ToLoad.height; y++) {
-          int index = _image.ImagePositionToBitPosition(x, y);
+          int index = Image.ImagePositionToBitPosition(x, y);
           if (ToLoad.GetPixel(x, y).r > 0.5f) {
-            _array[index] = 1;
+            _bitVector[index] = 1;
           } else {
-            _array[index] = 0;
+            _bitVector[index] = 0;
           }
         }
       }
@@ -165,66 +151,13 @@ public class Babel3 : MonoBehaviour {
         _prevKeyframeTime = Time.time;
       }
 
-      copy.CopyTo(_array, 0);
-    }
-
-    if (Validate) {
-      Validate = false;
-
-      int possiblities = (int)BigInteger.Pow(2, imageSize);
-      bool[] map = new bool[possiblities];
-
-      var bound = BigInteger.Pow(2, imageSize);
-
-      for (BigInteger i = 0; i < bound; i++) {
-        SetFromIndex(i);
-
-        ulong possibility = 0;
-        for (int j = 0; j < imageSize; j++) {
-          possibility = (possibility << 1) | _array[j];
-        }
-
-        if (map[possibility]) {
-          Debug.LogError("Found duplicate " + possibility + " at index " + i);
-          break;
-        }
-
-        map[possibility] = true;
-      }
-
-      Debug.Log("No duplicates found!");
-    }
-
-    if (ValidateIndex) {
-      ValidateIndex = false;
-
-      var bound = BigInteger.Pow(2, imageSize);
-      for (BigInteger i = 0; i < bound; i++) {
-        SetFromIndex(i);
-
-        var index = CalculateIndex();
-
-        if (index != i) {
-          Debug.LogError("Indices were not the same! " + i + " : " + index);
-          break;
-        }
-      }
-
-      Debug.Log("all indices validated");
-    }
-
-    if (_prevPercent != Percent) {
-      _prevPercent = Percent;
-      Index = GetIndexFromPercent(Percent);
-
-      SetFromIndex(Index);
-      UpdateDataTexture();
+      copy.CopyTo(_bitVector, 0);
     }
 
     if (Offset != _prevOffset) {
       Index += (Offset - _prevOffset) * BigInteger.Pow(2, OffsetScale);
       Index = BigInteger.Max(0, Index);
-      Index = BigInteger.Min(MaxIndex, Index);
+      Index = BigInteger.Min(Codec.MaxIndex, Index);
       _prevOffset = Offset;
 
       SetFromIndex(Index);
@@ -233,7 +166,7 @@ public class Babel3 : MonoBehaviour {
   }
 
   public float CalculateAdjustedPercent(BigInteger value) {
-    return _codec.CalculateNormalizedPercent(value);
+    return Codec.CalculateNormalizedPercent(value);
   }
 
   public void UpdateDataTexture() {
@@ -246,21 +179,21 @@ public class Babel3 : MonoBehaviour {
       DataTex.filterMode = FilterMode.Point;
     }
 
-    DataTex.SetPixelData(_array, 0);
+    DataTex.SetPixelData(_bitVector, 0);
     DataTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
     TargetMaterial.SetTexture("_Data", DataTex);
   }
 
   public BigInteger GetIndexFromPercent(float percent) {
-    return _codec.CalculateIndexFromPercent(percent);
+    return Codec.CalculateIndexFromPercent(percent);
   }
 
   void SetFromIndex(BigInteger index) {
-    _codec.Decode(index, _array);
+    Codec.Decode(index, _bitVector);
   }
 
   BigInteger CalculateIndex() {
-    return _codec.Encode(_array);
+    return Codec.Encode(_bitVector);
   }
 }
