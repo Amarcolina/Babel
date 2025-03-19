@@ -2,17 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 public class BabelApp : MonoBehaviour {
 
   public int ImageWidth;
-
-  public Texture2D ToLoad;
-  public bool LoadImage;
-
-  [Header("Rendering")]
   public Material TargetMaterial;
-  public Texture2D DataTex;
+
+  public BabelCodec Codec;
+  public BabelImage Image;
 
   private BigInteger _index;
   public BigInteger Index {
@@ -34,10 +32,100 @@ public class BabelApp : MonoBehaviour {
     }
   }
 
-  public BabelCodec Codec;
-  public BabelImage Image;
+  public bool IsAnimating => _isAnimating;
+  public BigInteger AnimStart, AnimEnd;
 
   private byte[] _bitVector;
+  private Texture2D _rawBitTexture;
+
+  private bool _isAnimating;
+  private BigInteger _prevKeyframe;
+  private float _prevKeyframeTime;
+  private List<BigInteger> _animFrames = new();
+
+  public void LoadImage(Texture2D texture) {
+    Assert.AreEqual(texture.width, ImageWidth);
+    Assert.AreEqual(texture.height, ImageWidth);
+
+    for (int x = 0; x < texture.width; x++) {
+      for (int y = 0; y < texture.height; y++) {
+        int index = Image.ImagePositionToBitPosition(x, y);
+        if (texture.GetPixel(x, y).r > 0.5f) {
+          _bitVector[index] = 1;
+        } else {
+          _bitVector[index] = 0;
+        }
+      }
+    }
+
+    _index = Codec.Encode(_bitVector);
+    UpdateDataTexture();
+  }
+
+  public void AnimateToImage(Texture2D texture) {
+    Assert.AreEqual(texture.width, ImageWidth);
+    Assert.AreEqual(texture.height, ImageWidth);
+
+    var encodedTexture = new byte[texture.width * texture.height];
+
+    for (int x = 0; x < texture.width; x++) {
+      for (int y = 0; y < texture.height; y++) {
+        int index = Image.ImagePositionToBitPosition(x, y);
+        if (texture.GetPixel(x, y).r > 0.5f) {
+          encodedTexture[index] = 1;
+        } else {
+          encodedTexture[index] = 0;
+        }
+      }
+    }
+
+    AnimStart = Index;
+    AnimEnd = Codec.Encode(encodedTexture);
+
+    if (AnimStart == AnimEnd) {
+      return;
+    }
+
+    _animFrames.Clear();
+
+    var firstPart = new List<BigInteger>();
+    var secondPart = new List<BigInteger>();
+
+    BigInteger animFrame;
+    bool currSign;
+    BigInteger step;
+    BigInteger stepStep = 300;
+    BigInteger stepStepStep = 257;
+    BigInteger stepStepStepStep = 256;
+
+    BigInteger halfway = (AnimStart + AnimEnd) / 2;
+
+    animFrame = AnimStart;
+    currSign = animFrame > halfway;
+    step = (AnimEnd > AnimStart) ? 256 : -256;
+
+    while (animFrame > halfway == currSign) {
+      firstPart.Add(animFrame);
+      secondPart.Add(AnimEnd - (animFrame - AnimStart));
+
+      animFrame += step / 256;
+      step = (step * stepStep / 256);
+      stepStep = (stepStep * stepStepStep / 256);
+      stepStepStep = (stepStepStep * stepStepStepStep / 256);
+      stepStepStepStep = stepStepStepStep * 269 / 256;
+    }
+
+    firstPart.Reverse();
+
+    _animFrames.Clear();
+    _animFrames.AddRange(secondPart);
+    _animFrames.AddRange(firstPart);
+
+    _isAnimating = true;
+
+    _prevKeyframe = Index;
+    _prevKeyframeTime = Time.time;
+  }
 
   private void OnEnable() {
     int bits = ImageWidth * ImageWidth;
@@ -45,16 +133,12 @@ public class BabelApp : MonoBehaviour {
     Image = new BabelImage(bits);
     _bitVector = new byte[bits];
 
+    _rawBitTexture = new Texture2D(ImageWidth, ImageWidth, TextureFormat.R8, mipChain: false, linear: false);
+    _rawBitTexture.filterMode = FilterMode.Point;
+
+    TargetMaterial.SetTexture("_Data", _rawBitTexture);
     TargetMaterial.SetTexture("_Lookup", Image.GenerateLookupTexture());
   }
-
-  private bool _isAnimating;
-  private BigInteger _prevKeyframe;
-  private float _prevKeyframeTime;
-  private List<BigInteger> _animFrames = new();
-
-  public bool IsAnimating => _isAnimating;
-  public BigInteger AnimStart, AnimEnd;
 
   private void Update() {
     if (_isAnimating) {
@@ -76,85 +160,10 @@ public class BabelApp : MonoBehaviour {
         _isAnimating = false;
       }
     }
-
-    if (LoadImage) {
-      LoadImage = false;
-
-      var copy = (byte[])_bitVector.Clone();
-
-      for (int x = 0; x < ToLoad.width; x++) {
-        for (int y = 0; y < ToLoad.height; y++) {
-          int index = Image.ImagePositionToBitPosition(x, y);
-          if (ToLoad.GetPixel(x, y).r > 0.5f) {
-            _bitVector[index] = 1;
-          } else {
-            _bitVector[index] = 0;
-          }
-        }
-      }
-
-      AnimStart = Index;
-      AnimEnd = Codec.Encode(_bitVector);
-
-      if (AnimEnd != AnimStart) {
-        _animFrames.Clear();
-
-        var firstPart = new List<BigInteger>();
-        var secondPart = new List<BigInteger>();
-
-        BigInteger animFrame;
-        bool currSign;
-        BigInteger step;
-        BigInteger stepStep = 300;
-        BigInteger stepStepStep = 257;
-        BigInteger stepStepStepStep = 256;
-
-        BigInteger halfway = (AnimStart + AnimEnd) / 2;
-
-        animFrame = AnimStart;
-        currSign = animFrame > halfway;
-        step = (AnimEnd > AnimStart) ? 256 : -256;
-
-        while (animFrame > halfway == currSign) {
-          firstPart.Add(animFrame);
-          secondPart.Add(AnimEnd - (animFrame - AnimStart));
-
-          animFrame += step / 256;
-          step = (step * stepStep / 256);
-          stepStep = (stepStep * stepStepStep / 256);
-          stepStepStep = (stepStepStep * stepStepStepStep / 256);
-          stepStepStepStep = stepStepStepStep * 269 / 256;
-        }
-
-        firstPart.Reverse();
-
-        _animFrames.Clear();
-        _animFrames.AddRange(secondPart);
-        _animFrames.AddRange(firstPart);
-
-        _isAnimating = true;
-
-        _prevKeyframe = Index;
-        _prevKeyframeTime = Time.time;
-      }
-
-      copy.CopyTo(_bitVector, 0);
-    }
   }
 
   public void UpdateDataTexture() {
-    if (DataTex == null || DataTex.width != ImageWidth) {
-      if (DataTex != null) {
-        DestroyImmediate(DataTex);
-      }
-
-      DataTex = new Texture2D(ImageWidth, ImageWidth, TextureFormat.R8, mipChain: false, linear: true);
-      DataTex.filterMode = FilterMode.Point;
-    }
-
-    DataTex.SetPixelData(_bitVector, 0);
-    DataTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-
-    TargetMaterial.SetTexture("_Data", DataTex);
+    _rawBitTexture.SetPixelData(_bitVector, 0);
+    _rawBitTexture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
   }
 }
