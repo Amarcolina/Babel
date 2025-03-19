@@ -81,9 +81,6 @@ public class Babel3 : MonoBehaviour {
       factorial *= i;
       _factorial[i] = factorial;
     }
-
-    _setFromIndexCache.Clear();
-    _totalComboCache.Clear();
   }
 
   private bool _isAnimating;
@@ -123,20 +120,12 @@ public class Babel3 : MonoBehaviour {
   }
 
   private void Update() {
-    IndexIt = 0;
-
     int imageSize = ImageWidth * ImageWidth;
     if (imageSize != _array.Length) {
       _array = new byte[imageSize];
       _positions = new int2[imageSize];
       InitPositions(0, _array.Length, 0, 0, ImageWidth);
       UpdateLookupTexture();
-    }
-
-    if (ClearCache) {
-      ClearCache = false;
-      _setFromIndexCache.Clear();
-      _totalComboCache.Clear();
     }
 
     if (_isAnimating) {
@@ -289,22 +278,7 @@ public class Babel3 : MonoBehaviour {
   }
 
   public float CalculateAdjustedPercent(BigInteger value) {
-    int imageSize = ImageWidth * ImageWidth;
-    int slots = imageSize + 1;
-
-    BigInteger index = 0;
-    for (int i = 0; i < slots; i++) {
-      BigInteger nextIndex = index + NPermuteK(imageSize, i);
-      if (value < nextIndex) {
-        float slotA = (i + 0f) / slots;
-        float slotB = (i + 1f) / slots;
-        float slotT = (long)((value - index) * 10000 / (nextIndex - index)) / 10000.0f;
-        return Mathf.Lerp(slotA, slotB, slotT);
-      }
-      index = nextIndex;
-    }
-
-    return 1f;
+    return _codec.CalculateNormalizedPercent(value);
   }
 
   public void UpdateLookupTexture() {
@@ -369,14 +343,7 @@ public class Babel3 : MonoBehaviour {
   }
 
   public BigInteger GetIndexFromPercent(float percent) {
-    var maxPossibilities = BigInteger.Pow(2, _array.Length);
-    var index = (maxPossibilities * new BigInteger(Mathf.RoundToInt(percent * 1000000))) / 1000000;
-
-    if (index == maxPossibilities) {
-      index = maxPossibilities - 1;
-    }
-
-    return index;
+    return _codec.CalculateIndexFromPercent(percent);
   }
 
   void SetFromIndex(BigInteger index) {
