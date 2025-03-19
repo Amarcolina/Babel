@@ -53,6 +53,13 @@ public class BabelApp : MonoBehaviour {
     UpdateDataTexture();
   }
 
+  public void SetPixelAt(int x, int y, byte status) {
+    int bitIndex = Image.ImagePositionToBitPosition(x, y);
+    _bitVector[bitIndex] = status;
+    _index = Codec.Encode(_bitVector);
+    UpdateDataTexture();
+  }
+
   public void LoadImage(Texture2D texture) {
     Assert.AreEqual(texture.width, ImageWidth);
     Assert.AreEqual(texture.height, ImageWidth);
@@ -148,6 +155,9 @@ public class BabelApp : MonoBehaviour {
 
     TargetMaterial.SetTexture("_Data", _rawBitTexture);
     TargetMaterial.SetTexture("_Lookup", Image.GenerateLookupTexture());
+
+    _index = 0;
+    UpdateDataTexture();
   }
 
   private void Update() {
