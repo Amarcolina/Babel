@@ -23,7 +23,9 @@ public class BabelImage {
       throw new ArgumentException($"Bit count must be a power of two but was {bits}");
     }
 
+    Bits = bits;
     SideLength = (int)math.sqrt(bits);
+
     if (SideLength * SideLength != bits) {
       throw new ArgumentException($"Bit count must be a square number but was {bits}");
     }
@@ -32,6 +34,14 @@ public class BabelImage {
     _imagePositionToBitPosition = new int[SideLength, SideLength];
 
     InitPositionLoopupRecursive(0, bits, 0, 0, SideLength);
+  }
+
+  public int ImagePositionToBitPosition(int2 imagePosition) {
+    return _imagePositionToBitPosition[imagePosition.x, imagePosition.y];
+  }
+
+  public int ImagePositionToBitPosition(int imageX, int imageY) {
+    return _imagePositionToBitPosition[imageX, imageY];
   }
 
   public void EncodeToImage(byte[] bitVector, byte[,] image) {

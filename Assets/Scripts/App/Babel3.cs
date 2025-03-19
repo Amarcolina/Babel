@@ -12,8 +12,6 @@ using UnityEngine.UI;
 public class Babel3 : MonoBehaviour {
 
   private byte[] _array = new byte[16];
-  private int2[] _positions;
-  private int[,] _positionToIndex;
 
   public int ImageWidth;
 
@@ -36,7 +34,6 @@ public class Babel3 : MonoBehaviour {
 
   [Header("Rendering")]
   public Material TargetMaterial;
-  public Texture2D LookupTex;
   public Texture2D DataTex;
 
   private float _prevPercent;
@@ -46,6 +43,7 @@ public class Babel3 : MonoBehaviour {
   public BigInteger MaxIndex;
 
   private BabelCodec _codec;
+  private BabelImage _image;
 
   public void SetPercent(float percent) {
     Percent = percent;
@@ -53,20 +51,13 @@ public class Babel3 : MonoBehaviour {
 
   private void OnEnable() {
     _codec = new BabelCodec(ImageWidth * ImageWidth);
+    _image = new BabelImage(ImageWidth * ImageWidth);
 
     _array = new byte[ImageWidth * ImageWidth];
-    _positions = new int2[ImageWidth * ImageWidth];
-    InitPositions(0, _array.Length, 0, 0, ImageWidth);
-
-    _positionToIndex = new int[ImageWidth, ImageWidth];
-    for (int i = 0; i < _positions.Length; i++) {
-      var pos = _positions[i];
-      _positionToIndex[pos.x, pos.y] = i;
-    }
 
     MaxIndex = BigInteger.Pow(2, _array.Length);
 
-    UpdateLookupTexture();
+    TargetMaterial.SetTexture("_Lookup", _image.GenerateLookupTexture());
   }
 
   private bool _isAnimating;
@@ -90,9 +81,6 @@ public class Babel3 : MonoBehaviour {
     int imageSize = ImageWidth * ImageWidth;
     if (imageSize != _array.Length) {
       _array = new byte[imageSize];
-      _positions = new int2[imageSize];
-      InitPositions(0, _array.Length, 0, 0, ImageWidth);
-      UpdateLookupTexture();
     }
 
     if (_isAnimating) {
@@ -123,7 +111,7 @@ public class Babel3 : MonoBehaviour {
 
       for (int x = 0; x < ToLoad.width; x++) {
         for (int y = 0; y < ToLoad.height; y++) {
-          int index = _positionToIndex[x, y];
+          int index = _image.ImagePositionToBitPosition(x, y);
           if (ToLoad.GetPixel(x, y).r > 0.5f) {
             _array[index] = 1;
           } else {
@@ -248,31 +236,6 @@ public class Babel3 : MonoBehaviour {
     return _codec.CalculateNormalizedPercent(value);
   }
 
-  public void UpdateLookupTexture() {
-    if (LookupTex == null || LookupTex.width != ImageWidth) {
-      if (LookupTex != null) {
-        DestroyImmediate(LookupTex);
-      }
-
-      LookupTex = new Texture2D(ImageWidth, ImageWidth, TextureFormat.RGHalf, mipChain: false, linear: true);
-      LookupTex.filterMode = FilterMode.Point;
-    }
-
-    var data = LookupTex.GetPixelData<half2>(mipLevel: 0);
-
-    for (int i = 0; i < _positions.Length; i++) {
-      int2 dstPos = _positions[i];
-      int srcX = i % ImageWidth;
-      int srcY = i / ImageWidth;
-      float2 srcUv = new float2(srcX + 0.5f, srcY + 0.5f) / ImageWidth;
-      data[dstPos.x + dstPos.y * ImageWidth] = (half2)srcUv;
-    }
-
-    LookupTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-
-    TargetMaterial.SetTexture("_Lookup", LookupTex);
-  }
-
   public void UpdateDataTexture() {
     if (DataTex == null || DataTex.width != ImageWidth) {
       if (DataTex != null) {
@@ -287,26 +250,6 @@ public class Babel3 : MonoBehaviour {
     DataTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
     TargetMaterial.SetTexture("_Data", DataTex);
-  }
-
-  public void InitPositions(int start, int end, int sign, int2 min, int2 max) {
-    int length = end - start;
-    if (length == 1) {
-      _positions[start] = min;
-      return;
-    }
-
-    int middleIndex = start + (end - start) / 2;
-    int middleAxis = (min + (max - min) / 2)[sign];
-
-    int2 leftMax = max;
-    int2 rightMin = min;
-
-    leftMax[sign] = middleAxis;
-    rightMin[sign] = middleAxis;
-
-    InitPositions(start, middleIndex, 1 - sign, min, leftMax);
-    InitPositions(middleIndex, end, 1 - sign, rightMin, max);
   }
 
   public BigInteger GetIndexFromPercent(float percent) {
