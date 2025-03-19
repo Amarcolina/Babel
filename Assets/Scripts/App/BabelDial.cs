@@ -22,15 +22,23 @@ public class BabelDial : MonoBehaviour,
   public float Sensitivity;
   public float Power;
   public float RotationSensitivity;
+  public int MultiplierPower;
+  public float MultiplierExp;
 
   private BigInteger _startIndex;
   private double _startAngle;
   private double _angle;
 
   private double _increment;
+  private BigInteger _multiplier;
 
   void Start() {
     Graphic.color = NormalColor;
+    _multiplier = 1;
+  }
+
+  public void SetMultiplier(float mult) {
+    _multiplier = BigInteger.Pow(MultiplierPower, Mathf.RoundToInt(mult * MultiplierExp));
   }
 
   public void OnDrag(PointerEventData eventData) {
@@ -56,7 +64,7 @@ public class BabelDial : MonoBehaviour,
 
     Face.sprite = FaceSprites[(int)Math.Floor(tmpAngle / 90 * FaceSprites.Length)];
 
-    Babel.Index = _startIndex + (int)Math.Round(_increment * Sensitivity);
+    Babel.Index = _startIndex + _multiplier * (int)Math.Round(_increment * Sensitivity);
   }
 
   public void OnPointerDown(PointerEventData eventData) {
