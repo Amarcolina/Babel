@@ -274,6 +274,8 @@ public class Babel3 : MonoBehaviour {
 
     if (Offset != _prevOffset) {
       Index += (Offset - _prevOffset) * BigInteger.Pow(2, OffsetScale);
+      Index = BigInteger.Max(0, Index);
+      Index = BigInteger.Min(MaxIndex, Index);
       _prevOffset = Offset;
 
       SetFromIndex(Index);

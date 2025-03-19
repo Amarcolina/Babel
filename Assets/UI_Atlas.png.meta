@@ -169,6 +169,182 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: Dial
+      rect:
+        serializedVersion: 2
+        x: 24
+        y: 56
+        width: 21
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b9140282fddbf6944a22ff979f9707ca
+      internalID: 581612077
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialArrow
+      rect:
+        serializedVersion: 2
+        x: 20
+        y: 64
+        width: 3
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9baeafcc11b855748979f0fcafe2a349
+      internalID: -313810378
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialFace_0
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 109
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 822132a70e2c82b42a7165dfad6a199f
+      internalID: -997536584
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialFace_15
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 91
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d961ecdaeff28c74ca861d20d8a60770
+      internalID: -666601338
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialFace_30
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 73
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e742974ee9e61484f86a4f8c0d8e1d33
+      internalID: 229778043
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialFace_45
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 55
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d0deb33c04ce0884f8dcc74cb999b604
+      internalID: 2129325065
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialFace_60
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 37
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b175714558ef575459dd55cfb8c9e9fa
+      internalID: -1814469040
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: DialFace_75
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 19
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3bc15f468f1a9a145a10d6c903dc9001
+      internalID: -201394690
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
@@ -183,6 +359,15 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
+      Dial: 581612077
+      DialArrow: -313810378
+      DialFace_0: -997536584
+      DialFace_15: -666601338
+      DialFace_30: 229778043
+      DialFace_45: 2129325065
+      DialFace_60: -1814469040
+      DialFace_75: -201394690
+      DialMask: 2023888579
       UI_Atlas_0: -7674825515897469759
       UI_Atlas_1: 1870720489
   mipmapLimitGroupName: 
