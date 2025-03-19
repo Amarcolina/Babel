@@ -19,7 +19,7 @@ public class BabelScroller : MonoBehaviour, IPointerDownHandler, IDragHandler {
     var scaler = GetComponentInParent<CanvasScaler>();
     float delta = eventData.position.x - transform.position.x;
     float p = delta / GetComponent<RectTransform>().rect.width;
-    return p / scaler.scaleFactor;
+    return Mathf.Clamp01(p / scaler.scaleFactor);
   }
 
   public void OnDrag(PointerEventData eventData) {
@@ -27,16 +27,16 @@ public class BabelScroller : MonoBehaviour, IPointerDownHandler, IDragHandler {
       return;
     }
 
-    Babel.SetFromAdjustedPercent(Mathf.Clamp01(CalcPercent(eventData)));
+    Babel.Index = Babel.Codec.CalculateNormalizedIndexFromPercent(CalcPercent(eventData));
   }
 
   public void OnPointerDown(PointerEventData eventData) {
-    Babel.SetFromAdjustedPercent(Mathf.Clamp01(CalcPercent(eventData)));
+    Babel.Index = Babel.Codec.CalculateNormalizedIndexFromPercent(CalcPercent(eventData));
   }
 
   void Update() {
     if (_currIndex != Babel.Index) {
-      float factor = Babel.CalculateAdjustedPercent(Babel.Index);
+      float factor = Babel.Codec.CalculateNormalizedPercent(Babel.Index);
       Cursor.localPosition = new UnityEngine.Vector3(Mathf.Lerp(CursorMin, CursorMax, factor), 0, 0);
 
       _currIndex = Babel.Index;
@@ -45,11 +45,11 @@ public class BabelScroller : MonoBehaviour, IPointerDownHandler, IDragHandler {
     if (Babel.IsAnimating) {
       AnimPreview.gameObject.SetActive(true);
       if (_prevAnimEnd != Babel.AnimEnd) {
-        _posAnimEnd = Babel.CalculateAdjustedPercent(Babel.AnimEnd);
+        _posAnimEnd = Babel.Codec.CalculateNormalizedPercent(Babel.AnimEnd);
         _prevAnimEnd = Babel.AnimEnd;
       }
 
-      float p0 = Babel.CalculateAdjustedPercent(Babel.Index);
+      float p0 = Babel.Codec.CalculateNormalizedPercent(Babel.Index);
       float p1 = _posAnimEnd;
 
       float min = Mathf.Lerp(RangeMin, RangeMax, Mathf.Min(p0, p1));

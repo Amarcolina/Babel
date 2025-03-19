@@ -14,8 +14,6 @@ public class BabelApp : MonoBehaviour {
   public Material TargetMaterial;
   public Texture2D DataTex;
 
-  private int _prevOffset;
-
   private BigInteger _index;
   public BigInteger Index {
     get => _index;
@@ -23,12 +21,15 @@ public class BabelApp : MonoBehaviour {
       value = BigInteger.Max(0, value);
       value = BigInteger.Min(Codec.MaxIndex, value);
 
+      _isAnimating = false;
+      _animFrames.Clear();
+
       if (value == _index) {
         return;
       }
 
       _index = value;
-      SetFromIndex(_index);
+      Codec.Decode(_index, _bitVector);
       UpdateDataTexture();
     }
   }
@@ -55,31 +56,21 @@ public class BabelApp : MonoBehaviour {
   public bool IsAnimating => _isAnimating;
   public BigInteger AnimStart, AnimEnd;
 
-  public void SetFromAdjustedPercent(float adjustedPercent) {
-    _isAnimating = false;
-    _animFrames.Clear();
-
-    Index = Codec.CalculateNormalizedIndexFromPercent(adjustedPercent);
-    SetFromIndex(Index);
-    UpdateDataTexture();
-  }
-
   private void Update() {
     if (_isAnimating) {
       var nextKeyframe = _animFrames[_animFrames.Count - 1];
 
       float keyframeT = Mathf.InverseLerp(_prevKeyframeTime, _prevKeyframeTime + 0.1f, Time.time);
 
-      Index = _prevKeyframe + (nextKeyframe - _prevKeyframe) * new BigInteger((int)(keyframeT * 10000)) / 10000;
+      _index = _prevKeyframe + (nextKeyframe - _prevKeyframe) * new BigInteger((int)(keyframeT * 10000)) / 10000;
+      Codec.Decode(_index, _bitVector);
+      UpdateDataTexture();
 
       if (keyframeT >= 1f) {
         _prevKeyframe = nextKeyframe;
         _prevKeyframeTime = Time.time;
         _animFrames.RemoveAt(_animFrames.Count - 1);
       }
-
-      SetFromIndex(Index);
-      UpdateDataTexture();
 
       if (_animFrames.Count == 0) {
         _isAnimating = false;
@@ -103,7 +94,7 @@ public class BabelApp : MonoBehaviour {
       }
 
       AnimStart = Index;
-      AnimEnd = CalculateIndex();
+      AnimEnd = Codec.Encode(_bitVector);
 
       if (AnimEnd != AnimStart) {
         _animFrames.Clear();
@@ -151,10 +142,6 @@ public class BabelApp : MonoBehaviour {
     }
   }
 
-  public float CalculateAdjustedPercent(BigInteger value) {
-    return Codec.CalculateNormalizedPercent(value);
-  }
-
   public void UpdateDataTexture() {
     if (DataTex == null || DataTex.width != ImageWidth) {
       if (DataTex != null) {
@@ -169,17 +156,5 @@ public class BabelApp : MonoBehaviour {
     DataTex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
     TargetMaterial.SetTexture("_Data", DataTex);
-  }
-
-  public BigInteger GetIndexFromPercent(float percent) {
-    return Codec.CalculateIndexFromPercent(percent);
-  }
-
-  void SetFromIndex(BigInteger index) {
-    Codec.Decode(index, _bitVector);
-  }
-
-  BigInteger CalculateIndex() {
-    return Codec.Encode(_bitVector);
   }
 }
