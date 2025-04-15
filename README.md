@@ -2,7 +2,7 @@
 
 [Try It here!](https://amarcolina.github.io/Babel/)
 
-This is an expirimental project inspired by the [Library Of Babel](https://libraryofbabel.info/) project, as well as the [Universal Slide Show](https://babelia.libraryofbabel.info/slideshow.html).  The idea of exploring the space of all possible images is an interesting one, but the experience can frequently be frustrating, as finding anything worthwhile is statistically impossible, the space is simply two large.  This project is an attempt to add some order to the chaos of searching through random images, by creating a way to order all possible images into a potentially interesting order.
+This is an expirimental project inspired by the [Library Of Babel](https://libraryofbabel.info/) project, as well as the [Universal Slide Show](https://babelia.libraryofbabel.info/slideshow.html).  The idea of exploring the space of all possible images is an interesting one, but the experience can frequently be frustrating, as finding anything worthwhile is statistically impossible, the space is simply too large.  This project is an attempt to add some order to the chaos of searching through random images, by creating a way to order all possible images into a potentially interesting order.
 
 The ordering defined in this project is designed to have a number of properties that I think are interesting, and make browsing the gallery a very strange experience.  Due to performance and algorithmic limitations, the gallery is limited to only mono-chromatic images right now, and at the small resolution of 64x64 pixels.  However, the benefit of real-time browsing I think is worth it!
 
