@@ -5,7 +5,7 @@ using UnityEngine;
 
 /// <summary>
 /// The BabelCodec defines a sequence of bit-vectors that has the following properties:
-///  - The first big-vector in the sequence is a vector of all zeros
+///  - The first bit-vector in the sequence is a vector of all zeros
 ///  - The last bit-vector in the sequence is a vector of all ones
 ///  - Every possible combination of bit-vectors appears exactly once in the sequence
 ///  - Vectors with fewer set bits are ordered before vectors with more set bits
